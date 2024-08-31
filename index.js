@@ -1,9 +1,14 @@
 const { JSDOM } = require('jsdom');
 
+let start_time = new Date().getTime();
+let debug_cnt = 0;
+
 async function search(name) {
+  debug_cnt++;
+  console.log(debug_cnt, new Date().getTime() - start_time)
   let wiki_path = 'https://ja.wikipedia.org/wiki/';
 
-  let dom = await JSDOM.fromURL('https://ja.wikipedia.org/wiki/' + encodeURI(name));
+  let dom = await JSDOM.fromURL(wiki_path + encodeURI(name));
   let document = dom.window.document;
 
   let ignore = [
@@ -45,21 +50,19 @@ async function search(name) {
   return to;
 }
 
-let graph = [];
+let graph = new Map();
 let visit = new Set();
-let loop_cnt = 2
-let debug = 0
+let loop_cnt = 1
+
 async function make_graph(current, cost) {
   if (cost >= loop_cnt) return;
   if (visit.has(current)) return;
   visit.add(current);
   let res = await search(current);
 
-  debug += 1
-  console.log(debug)
 
   if (current in graph == false)
-    graph[current] = [];
+    graph[current] = {};
 
   for (let next of res) {
     graph[current][next] = cost + 1;
@@ -76,6 +79,8 @@ async function make_graph(current, cost) {
 }
 
 (async () => {
+
   await make_graph('東京都立産業技術高等専門学校', 0);
   console.log(graph)
+  console.log(new Date().getTime() - start_time)
 })();
