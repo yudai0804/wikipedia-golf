@@ -1,14 +1,48 @@
 const { JSDOM } = require('jsdom');
 
+class Queue {
+  constructor() {
+    this.items = [];
+  }
+
+  push(element) {
+    this.items.push(element);
+  }
+
+  pop() {
+    return this.items.shift();
+  }
+
+  top() {
+    return this.items[0];
+  }
+
+  empty() {
+    return this.items.length === 0;
+  }
+
+  size() {
+    return this.items.length;
+  }
+}
+
 let start_time = new Date().getTime();
 let debug_cnt = 0;
 
-async function search(name) {
+let graph = [];
+let cost_map = [];
+let promise = [];
+let loop_depth = 1;
+let promise_cnt = 0;
+let max_promise = 100;
+let queue = new Queue();
+
+async function search(from, cost) {
   debug_cnt++;
   console.log(debug_cnt, new Date().getTime() - start_time)
   let wiki_path = 'https://ja.wikipedia.org/wiki/';
 
-  let dom = await JSDOM.fromURL(wiki_path + encodeURI(name));
+  let dom = await JSDOM.fromURL(wiki_path + encodeURI(from));
   let document = dom.window.document;
 
   let ignore = [
@@ -43,44 +77,51 @@ async function search(name) {
 
     if (ok) {
       let str = href.split('#')[0].replace(wiki_path, '');
-      to.add(decodeURIComponent(str))
+      if (str != from)
+        to.add(decodeURIComponent(str))
     }
   }
 
-  return to;
+  if (from in graph == false)
+    graph[from] = [];
+
+  for (let next of to) {
+    graph[from].push(next);
+    if (cost + 1 >= loop_depth)
+      continue;
+
+    if (cost_map[next] == undefined || cost + 1 < cost_map[next])
+      queue.push({ next: next, from: from, cost: cost + 1 })
+  }
+  promise_cnt--;
 }
 
-let graph = new Map();
-let visit = new Set();
-let loop_cnt = 1
+// 幅優先探索でグラフを作成する
+async function make_graph(start, cost) {
+  if (cost >= loop_depth) return;
+  queue.push({ next: start, from: '', cost: cost });
 
-async function make_graph(current, cost) {
-  if (cost >= loop_cnt) return;
-  if (visit.has(current)) return;
-  visit.add(current);
-  let res = await search(current);
+  let activePromises = new Set();
 
+  while (true) {
+    if (!queue.empty()) {
+      let { next, from, cost } = queue.pop();
+      if (cost_map[next] != undefined && cost_map[next] <= cost) continue;
 
-  if (current in graph == false)
-    graph[current] = {};
-
-  for (let next of res) {
-    graph[current][next] = cost + 1;
-
-    // if (next in graph == false)
-    // graph[next] = [];
-    // graph[next][current] = cost + 1;
-
-    if (visit.has(next) == false && cost + 1 < loop_cnt) {
-      await make_graph(next, cost + 1);
+      let promise = search(next, cost);
+      activePromises.add(promise);
+      promise.finally(() => activePromises.delete(promise));
+    } else if (activePromises.size == 0) {
+      break;
     }
 
+    // 少し待機して、キューが空でない場合の無限ループ防止
+    await new Promise(resolve => setTimeout(resolve, 20));
   }
 }
 
 (async () => {
-
   await make_graph('東京都立産業技術高等専門学校', 0);
   console.log(graph)
-  console.log(new Date().getTime() - start_time)
+  // TODO: 次は結果をちゃんと表示できるようにする
 })();
