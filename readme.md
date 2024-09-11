@@ -9,6 +9,7 @@ sudo apt-get install -y mysql-server
 sudo apt-get install -y libmysqlcppconn-dev
 ```
 debian12にMySQL入れようとしたら依存関係でうまく行かなかったので次のコマンドを入力した。
+
 MySQLとMariaDBが干渉してたっぽい？
 ```
 dpkg -l | grep -i 'maria\|mysql' | awk '{print $2}' | xargs sudo apt-get purge -y

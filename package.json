@@ -9,6 +9,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "jsdom": "^25.0.0"
+    "jsdom": "^25.0.0",
+    "jsonfile": "^6.1.0"
   }
 }
