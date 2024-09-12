@@ -102,6 +102,8 @@ set @target='日本';
 select lt_id,convert(lt_title using utf8mb4) from linktarget where lt_namespace=0 and lt_id in (select pl_target_id from pagelinks where pl_from in (select page_id from page where page_namespace=0 and page_title=@target));
 ```
 
+# old
+
 # WikiExtractor
 ## requirements
 - Python3.7
