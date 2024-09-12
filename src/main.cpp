@@ -4,6 +4,7 @@
 #include <memory>
 #include <map>
 #include <set>
+#include <deque>
 #include <queue>
 #include <utility>
 #include <mysql_driver.h>
@@ -82,42 +83,68 @@ void bfs(std::string start, std::string goal) {
     std::cout << "error" << std::endl;
     return;
   }
-  // first=page_id, second=cost
   std::queue<std::pair<int,int>> q;
+  std::set<int> visit;
   q.push(std::pair<int,int>(start_page_id, 1));
   bool ok = false;
-  int most_low_cost = inf;
-  long long cnt = 0;
-  while(q.empty() == false) {
-    cnt++;
+  while(q.empty() == false && ok == false) {
     auto [page_id, cost] = q.front();
     q.pop();
-    if (cost > most_low_cost) continue;
-    if (graph.count(page_id)) continue;
+    if(visit.count(page_id))
+      continue;
+    visit.insert(page_id);
     mysql.search(page_id, graph[page_id].first);
     graph[page_id].second = cost;
     for(auto _ : graph[page_id].first) {
+      if(visit.count(_))
+        continue;
+      graph[_].first.push_back(page_id);
+      graph[_].second = cost;
       if(_ == goal_page_id) {
-        std::cout << "goal" << ',';
-        std::cout << "cost:" << cost << mysql.page_id_to_page_title(page_id) << std::endl;
         ok = true;
-        return;
-        if (most_low_cost == inf)
-          most_low_cost = cost;
-        continue;
+        break;
       }
-      if(graph.count(_))
-        continue;
-      if(cost + 1 <= MAX_DEPTH && cost + 1 <= most_low_cost) 
+      if(cost + 1 <= MAX_DEPTH) 
         q.push(std::pair<int,int>(_, cost + 1));
     }
   }
-  std::cout << most_low_cost << std::endl;
+  if (ok == false) {
+    std::cout << "failed" << std::endl;
+    return;
+  }
+  std::deque<int> dq;
+  visit.clear();
+  std::vector<int> ans;
+  auto dfs = [&](auto dfs, int page_id, int cost) {
+    if(visit.count(page_id) || ans.size() > 0)
+      return;
+    dq.push_back(page_id);
+    visit.insert(page_id);
+    if(page_id == start_page_id) {
+      for(auto it = dq.rbegin(); it != dq.rend(); it++)
+        ans.push_back(*it);
+      dq.pop_back();
+      return;
+    }
+    for(auto next : graph[page_id].first) {
+      if (graph[next].second == cost - 1)
+        dfs(dfs, next, cost - 1);
+    }
+    dq.pop_back();
+  };
+  dfs(dfs, goal_page_id, graph[goal_page_id].second + 1);
+  std::cout << "answer" << std::endl;
+  for(int i = 0; i < ans.size(); i++)
+    std::cout << i << ":" << mysql.page_id_to_page_title(ans[i]) << std::endl;
 }
 
-int main() {
-  std::string target = "きのこの山";
-  std::string goal = "GitHub";
+int main(int argc, char **argv) {
+  if(argc != 3) {
+    std::cout << "input error" << std::endl;
+    return 0;
+  }
+  std::string target = argv[1];
+  std::string goal = argv[2];
   mysql.init();
   auto start_page_id = mysql.page_title_to_page_id(target);
   // 開始時刻を記録
