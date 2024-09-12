@@ -1,4 +1,5 @@
 #include <iostream>
+#include <chrono>
 #include <vector>
 #include <memory>
 #include <map>
@@ -24,18 +25,25 @@ private:
   sql::mysql::MySQL_Driver* driver;
   std::shared_ptr<sql::Connection> con;
   std::shared_ptr<sql::Statement> stmt;
+  std::map<std::string, int> mp;
 public:
   MySQLController(std::string _host, std::string _user, std::string _password) : host(_host), user(_user), password(_password) {
   }
   void init() {
+    std::shared_ptr<sql::ResultSet> res;
     driver = sql::mysql::get_mysql_driver_instance();
     con = std::shared_ptr<sql::Connection> (driver->connect(host, user, password));
     stmt = std::shared_ptr<sql::Statement> (con->createStatement());
     stmt->execute("USE jawikipedia");
+
+    res = std::shared_ptr<sql::ResultSet> (stmt->executeQuery("SELECT page_title,page_id FROM page WHERE page_namespace=0")); 
+    while (res->next()) {
+      mp[res->getString("page_title")] = res->getInt("page_id");
+    }
   }
   int page_title_to_page_id(std::string page_title) {
     std::shared_ptr<sql::ResultSet> res;
-    res = std::shared_ptr<sql::ResultSet> (stmt->executeQuery("select page_id from page where page_namespace=0 and page_title='" + page_title + "'")); 
+    res = std::shared_ptr<sql::ResultSet> (stmt->executeQuery("SELECT page_id FROM page WHERE page_namespace=0 AND page_title='" + page_title + "'")); 
     int page_id = -1;
     if (res->next()) {
       page_id = res->getInt("page_id");
@@ -45,7 +53,7 @@ public:
   std::string page_id_to_page_title(int page_id) { 
     std::shared_ptr<sql::ResultSet> res;
     std::string page_title;
-    res = std::shared_ptr<sql::ResultSet> (stmt->executeQuery("select page_title from page where page_namespace=0 and page_id=" + std::to_string(page_id))); 
+    res = std::shared_ptr<sql::ResultSet> (stmt->executeQuery("SELECT page_title FROM page WHERE page_namespace=0 AND page_id=" + std::to_string(page_id))); 
     if (res->next()) {
       page_title = res->getString("page_title");
     }
@@ -54,9 +62,10 @@ public:
   void search(int page_id, std::vector<int> &to) { 
     std::shared_ptr<sql::ResultSet> res;
     // リンクの個数を数える。リンク先のページが存在していないもの(wikipedia上の赤文字のリンク)はカウントしない
-    res = std::shared_ptr<sql::ResultSet> (stmt->executeQuery("select page_id from page where page_namespace=0 and page_title in (select lt_title from linktarget where lt_namespace=0 and lt_id in (select pl_target_id from pagelinks where pl_from=" + std::to_string(page_id) + "))"));
+    res = std::shared_ptr<sql::ResultSet> (stmt->executeQuery("SELECT lt_title FROM linktarget WHERE lt_namespace=0 AND lt_id IN (SELECT pl_target_id FROM pagelinks WHERE pl_from=" + std::to_string(page_id) + ")"));
     while (res->next()) {
-      to.push_back(res->getInt("page_id"));
+      auto page_id = mp[res->getString("lt_title")];
+      to.push_back(page_id);
     }
   }
 };
@@ -69,6 +78,10 @@ int inf = 1e9;
 void bfs(std::string start, std::string goal) {
   int start_page_id = mysql.page_title_to_page_id(start);
   int goal_page_id = mysql.page_title_to_page_id(goal);
+  if(start_page_id == -1 || goal_page_id == -1) {
+    std::cout << "error" << std::endl;
+    return;
+  }
   // first=page_id, second=cost
   std::queue<std::pair<int,int>> q;
   q.push(std::pair<int,int>(start_page_id, 1));
@@ -77,7 +90,6 @@ void bfs(std::string start, std::string goal) {
   long long cnt = 0;
   while(q.empty() == false) {
     cnt++;
-    std::cout << cnt << std::endl;
     auto [page_id, cost] = q.front();
     q.pop();
     if (cost > most_low_cost) continue;
@@ -89,6 +101,7 @@ void bfs(std::string start, std::string goal) {
         std::cout << "goal" << ',';
         std::cout << "cost:" << cost << mysql.page_id_to_page_title(page_id) << std::endl;
         ok = true;
+        return;
         if (most_low_cost == inf)
           most_low_cost = cost;
         continue;
@@ -102,11 +115,25 @@ void bfs(std::string start, std::string goal) {
   std::cout << most_low_cost << std::endl;
 }
 
-int main()
-{
-  std::string target = "織田信長";
-  std::string goal = "東京都立産業技術高等専門学校";
+int main() {
+  std::string target = "きのこの山";
+  std::string goal = "GitHub";
   mysql.init();
+  auto start_page_id = mysql.page_title_to_page_id(target);
+  // 開始時刻を記録
+  auto start = std::chrono::high_resolution_clock::now();
+  
+
   bfs(target, goal);
+
+  // 終了時刻を記録
+  auto end = std::chrono::high_resolution_clock::now();
+    
+  // 経過時間を計算
+  std::chrono::duration<double> elapsed = end - start;
+    
+  // 結果を表示
+  std::cout << "Elapsed time: " << elapsed.count() << " seconds\n";
+    
   return 0;
 }
