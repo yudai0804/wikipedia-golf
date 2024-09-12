@@ -76,7 +76,7 @@ std::map<int, std::pair<std::vector<int>, int>> graph;
 int MAX_DEPTH = 3;
 int inf = 1e9;
 
-void bfs(std::string start, std::string goal) {
+void search(std::string start, std::string goal) {
   int start_page_id = mysql.page_title_to_page_id(start);
   int goal_page_id = mysql.page_title_to_page_id(goal);
   if(start_page_id == -1 || goal_page_id == -1) {
@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
   auto start = std::chrono::high_resolution_clock::now();
   
 
-  bfs(target, goal);
+  search(target, goal);
 
   // 終了時刻を記録
   auto end = std::chrono::high_resolution_clock::now();
