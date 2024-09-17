@@ -1,5 +1,6 @@
 #include <chrono>
 #include <deque>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -15,7 +16,8 @@
 // for HOST, USER, PASSWORD
 #include "private_config.hpp"
 
-Wikipedia wiki(HOST, USER, PASSWORD);
+namespace fs = std::filesystem;
+
 constexpr std::string DIRECTORY = "graph_bin/";
 constexpr std::string FILE_TYPE = ".bin";
 int PROGRESS_INTERVAL = 100;
@@ -28,6 +30,10 @@ void task(std::shared_ptr<Wikipedia> wiki, int start, int end) {
   for (int i = start; i < end; i++) {
     progress++;
     int target = id[i];
+    std::string filename = DIRECTORY + std::to_string(target) + FILE_TYPE;
+    if (fs::exists(filename))
+      continue;
+
     std::ofstream file(DIRECTORY + std::to_string(target) + FILE_TYPE,
                        std::ios::binary);
     if (!file) {
@@ -54,6 +60,16 @@ int main(int argc, char **argv) {
     std::cerr << "input error" << std::endl;
     return 0;
   }
+  if (fs::exists(DIRECTORY) == false) {
+    if (fs::is_directory(DIRECTORY) == false) {
+      std::cerr << DIRECTORY << "is file" << std::endl;
+      return 1;
+    } else if (fs::create_directory(DIRECTORY) == false) {
+      std::cerr << "create directory failed" << std::endl;
+      return 1;
+    }
+  }
+
   std::vector<std::shared_ptr<Wikipedia>> wiki(thread_number);
   std::vector<std::thread> th(thread_number);
   for (int i = 0; i < thread_number; i++) {

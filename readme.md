@@ -8,6 +8,23 @@ cmake -S . -B build
 cmake --build
 ```
 
+create_graph_file実行
+
+```
+mkdir -p graph_bin
+# スレッド数は5で設定
+time ./build/create_graph_file 5
+```
+
+実行結果(参考)
+```
+success
+
+real    29m40.090s
+user    7m16.756s
+sys     3m38.827s
+```
+
 ```
 g++ -o main.cpp -I/usr/include/mysql-cppconn/jdbc/ -lmysqlcppconn -O3
 ./a.out "src" "dst"
