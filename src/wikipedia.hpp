@@ -86,7 +86,7 @@ public:
         std::to_string(page_id) + ")"));
     while (res->next()) {
       auto page_id = mp[res->getString("lt_title")];
-      to.push_back(page_id);
+      if (page_id != 0) to.push_back(page_id);
     }
   }
 
