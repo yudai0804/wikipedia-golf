@@ -4,3 +4,5 @@ IndentWidth: 2
 AccessModifierOffset: -2
 ColumnLimit: 80
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
+# 文字列を分割しないようにする
+BreakStringLiterals: false
