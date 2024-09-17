@@ -1,4 +1,10 @@
 # 実行
+cmake
+```
+cmake -S . -B build
+cmake --build
+```
+
 ```
 g++ -o main.cpp -I/usr/include/mysql-cppconn/jdbc/ -lmysqlcppconn -O3
 ./a.out "src" "dst"
