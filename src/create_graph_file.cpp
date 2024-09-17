@@ -31,8 +31,7 @@ void task(std::shared_ptr<Wikipedia> wiki, int start, int end) {
     progress++;
     int target = id[i];
     std::string filename = DIRECTORY + std::to_string(target) + FILE_TYPE;
-    if (fs::exists(filename))
-      continue;
+    if (fs::exists(filename)) continue;
 
     std::ofstream file(DIRECTORY + std::to_string(target) + FILE_TYPE,
                        std::ios::binary);
