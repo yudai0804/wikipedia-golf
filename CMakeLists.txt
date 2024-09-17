@@ -4,6 +4,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -O3")
 
 add_executable(wikipedia-golf src/main.cpp)
+add_executable(create_graph_file src/create_graph_file.cpp)
 
 target_include_directories(wikipedia-golf PRIVATE /usr/include/mysql-cppconn/jdbc)
+target_include_directories(create_graph_file PRIVATE /usr/include/mysql-cppconn/jdbc)
+
 target_link_libraries(wikipedia-golf PRIVATE mysqlcppconn)
+target_link_libraries(create_graph_file PRIVATE mysqlcppconn)

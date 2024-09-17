@@ -13,6 +13,7 @@
 #include "private_config.hpp"
 
 Wikipedia wiki(HOST, USER, PASSWORD);
+
 std::map<int, std::pair<std::vector<int>, int>> graph;
 int MAX_DEPTH = 3;
 int inf = 1e9;

@@ -89,4 +89,12 @@ public:
       to.push_back(page_id);
     }
   }
+
+  std::vector<int> get_all_page_id(void) {
+    std::vector<int> res;
+    for (auto itr = mp.begin(); itr != mp.end(); itr++) {
+      res.push_back(itr->second);
+    }
+    return res;
+  }
 };
