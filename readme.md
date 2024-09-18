@@ -24,9 +24,7 @@ success
 real    32m23.187s
 user    8m4.320s
 sys     4m26.414s
-```
 
-```
 $ time ./build/create_graph_file 1
 success
 
@@ -41,11 +39,6 @@ $ find graph_bin/ -type f | wc -l
 2318460
 $ du -sh graph_bin/
 9.0G    graph_bin/
-```
-
-```
-g++ -o main.cpp -I/usr/include/mysql-cppconn/jdbc/ -lmysqlcppconn -O3
-./a.out "src" "dst"
 ```
 
 # MySQL
