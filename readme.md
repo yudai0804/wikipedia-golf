@@ -18,11 +18,29 @@ time ./build/create_graph_file 5
 
 実行結果(参考)
 ```
+$ time ./build/create_graph_file 5
 success
 
-real    29m40.090s
-user    7m16.756s
-sys     3m38.827s
+real    32m23.187s
+user    8m4.320s
+sys     4m26.414s
+```
+
+```
+$ time ./build/create_graph_file 1
+success
+
+real    109m41.642s
+user    11m52.537s
+sys     8m11.272s
+```
+
+生成されたbinの情報
+```
+$ find graph_bin/ -type f | wc -l
+2318460
+$ du -sh graph_bin/
+9.0G    graph_bin/
 ```
 
 ```
