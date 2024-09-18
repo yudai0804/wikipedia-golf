@@ -1,3 +1,14 @@
+/**
+ * @file create_graph_file.cpp
+ * @author Yudai Yamaguchi (yudai.yy0804@gmail.com)
+ * @brief SQLのテーブルをバイナリファイルに変換する
+ * @version 0.1
+ * @date 2024-09-19
+ *
+ * @copyright Copyright (c) 2024
+ *
+ */
+
 #include <chrono>
 #include <deque>
 #include <filesystem>
