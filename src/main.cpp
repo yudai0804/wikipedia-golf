@@ -118,6 +118,9 @@ public:
       : cost(_cost), page_id(_page_id), path(_path) {}
 };
 
+// 似たようなルートを許可すると探索効率が落ちる&メモリバカ食いする
+bool allow_similar_path = false;
+
 int search(std::string start, std::string goal) {
   int start_page_id = wiki.page_title_to_page_id(start);
   int goal_page_id = wiki.page_title_to_page_id(goal);
@@ -144,11 +147,13 @@ int search(std::string start, std::string goal) {
       ans.push_back(tmp);
       continue;
     }
-    if (visit[page_id] <= cost) continue;
+    if (allow_similar_path && visit[page_id] < cost) continue;
+    if (allow_similar_path == false && visit[page_id] <= cost) continue;
     visit[page_id] = cost;
     for (auto next : graph[page_id]) {
       uint8_t next_cost = cost + 1;
-      if (visit[next] <= next_cost) continue;
+      if (allow_similar_path && visit[next] < next_cost) continue;
+      if (allow_similar_path == false && visit[next] <= next_cost) continue;
       if (next_cost <= MAX_DEPTH && next_cost <= ok_cost) {
         path[cost] = next;
         q.emplace(next_cost, next, path);
@@ -162,7 +167,7 @@ int search(std::string start, std::string goal) {
 
   std::map<int, std::string> cache;
 
-  std::cout << "answer. total:" << ans.size() << std::endl;
+  std::cout << "total answer:" << ans.size() << std::endl;
   for (size_t i = 0; i < ans.size(); i++) {
     for (size_t j = 0; j < ans[i].size(); j++) {
       if (cache.count(ans[i][j]) == false)
