@@ -106,14 +106,14 @@ int search(std::string start, std::string goal) {
     return 1;
   }
   std::vector<std::vector<int>> ans;
-  std::priority_queue<Edge, std::vector<Edge>, Compare> pq;
+  std::queue<Edge> q;
   std::vector<uint8_t> visit(graph.size(), inf_cost);
   std::array<int, MAX_DEPTH> _ = {start_page_id};
-  pq.emplace(1, start_page_id, _);
+  q.emplace(1, start_page_id, _);
   int ok_cost = inf_cost;
-  while (pq.empty() == false && ans.size() < (size_t)max_ans_cost) {
-    auto [cost, page_id, path] = pq.top();
-    pq.pop();
+  while (q.empty() == false && ans.size() < (size_t)max_ans_cost) {
+    auto [cost, page_id, path] = q.front();
+    q.pop();
     if (ok_cost != inf_cost && cost > ok_cost) break;
     if (page_id == goal_page_id) {
       ok_cost = cost;
@@ -131,7 +131,7 @@ int search(std::string start, std::string goal) {
       if(visit[next] <= next_cost) continue;
       if (next_cost <= MAX_DEPTH && next_cost <= ok_cost) {
         path[cost] = next;
-        pq.emplace(next_cost, next, path);
+        q.emplace(next_cost, next, path);
       }
     }
   }
