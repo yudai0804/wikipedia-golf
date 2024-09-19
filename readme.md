@@ -1,5 +1,7 @@
 # wikipedia-golf
 wikipedia golfをするプログラムです。
+以下の例では、茶柱からアザラシへの経路を0.5[s]で求めています。
+データにはウィキペディアが公開しているデータベースを使用しています。
 ```
 $ ./build/wikipedia-golf --start "茶柱" --goal "アザラシ" --thread_number 6 --max_ans_number 50
 total_file: 2318461
@@ -41,7 +43,13 @@ total answer:32
 Time: 0.504079[s]
 ```
 
-# setup
+# Setup
+
+requirements
+- Linux(debian12)
+- gcc(for C++20)
+- cmake
+- mySQL
 
 ## mySQL
 
@@ -70,7 +78,10 @@ mysql -u root jawikipedia < jawiki-latest-page.sql
 mysql -u root jawikipedia < jawiki-latest-pagelinks.sql
 mysql -u root jawikipedia < jawiki-latest-linktarget.sql
 ```
-## build
+wikipediaのデータベースの詳細
+https://ja.wikipedia.org/wiki/Wikipedia:%E3%83%87%E3%83%BC%E3%82%BF%E3%83%99%E3%83%BC%E3%82%B9%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89
+
+# Build
 
 プログラムを実行する前に、mySQLのセットアップを行う必要があります。(セットアップ方法は後述)
 ```
@@ -117,7 +128,7 @@ wikipedia-golfを実行
 ./build/wikipedia-golf --start "start_name" --goal "goal_name" --thread_number 6
 ```
 
-## help
+# Help
 ```
 $ ./build/wikipedia-golf --help
 ```
