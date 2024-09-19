@@ -1,9 +1,9 @@
 # wikipedia-golf
 wikipedia golfをするプログラムです。
 
-以下の例では、茶柱からアザラシへの経路を0.5[s]で求めています。
+## example
 
-データにはウィキペディアが公開しているデータベースを使用しています。
+茶柱->アザラシの経路です。経路の計算は0.5[s]で実行可能です。
 ```
 $ ./build/wikipedia-golf --start "茶柱" --goal "アザラシ" --thread_number 6 --max_ans_number 50
 total_file: 2318461
