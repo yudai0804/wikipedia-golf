@@ -90,14 +90,6 @@ public:
       : cost(_cost), page_id(_page_id), path(_path) {}
 };
 
-// カスタムの比較関数
-struct Compare {
-  bool operator()(const Edge& a, const Edge& b) {
-    // 優先度が高い（小さい値）の方が前に来る
-    return a.cost > b.cost;
-  }
-};
-
 int search(std::string start, std::string goal) {
   int start_page_id = wiki.page_title_to_page_id(start);
   int goal_page_id = wiki.page_title_to_page_id(goal);
