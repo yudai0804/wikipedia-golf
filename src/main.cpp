@@ -32,22 +32,23 @@ namespace fs = std::filesystem;
 constexpr std::string DIRECTORY = "graph_bin/";
 
 Wikipedia wiki(HOST, USER, PASSWORD);
-std::map<int, std::vector<int>> graph;
+std::vector<std::vector<int>> graph;
 
 int load() {
   if ((fs::exists(DIRECTORY) && fs::is_directory(DIRECTORY)) == false) {
     std::cerr << "directory error" << std::endl;
     return 1;
   }
-  int progress = 0;
   int total_file = 0;
-  for (const auto& entry : fs::directory_iterator(DIRECTORY)) total_file++;
+  int max_file_number = -1;
+  for (const auto& entry : fs::directory_iterator(DIRECTORY)){
+    total_file++;
+    max_file_number = std::max(max_file_number, std::stoi(entry.path().filename()));
+  } 
   std::cout << "total_file: " << total_file << std::endl;
+  graph.resize(max_file_number + 1);
+
   for (const auto& entry : fs::directory_iterator(DIRECTORY)) {
-    progress++;
-    // if(progress % 10000 == 0)
-    // std::cout  << " [" << (double)progress / total_file * 100 << "%] " <<
-    // progress << "/" << total_file << std::endl;
     std::ifstream file(entry.path(), std::ios::binary);
     if (!file) {
       std::cerr << "Error opening file for reading" << std::endl;
@@ -63,28 +64,29 @@ int load() {
 
     // ファイルからデータを読み込む
     file.read(buffer, size);
-    std::vector<int> data(size / 4);
+    int index = std::stoi(entry.path().filename());
+    graph[index].reserve(size / 4);
     for (int i = 0; i < size; i += 4) {
       int* tmp = (int*)&buffer[i];
-      data[i / 4] = *tmp;
+      graph[index].push_back(*tmp);
     }
-    graph[std::stoi(entry.path().filename())] = data;
     delete[] buffer;
     file.close();
   }
   return 0;
 }
 
-constexpr int MAX_DEPTH = 6;
+constexpr uint8_t MAX_DEPTH = 6;
 constexpr int MAX_ANS_CNT = 1;
 int inf = 1e9;
+uint8_t inf_cost = 255;
 
 class Edge {
 public:
-  int cost;
+  uint8_t cost;
   int page_id;
   std::array<int, MAX_DEPTH> path;
-  Edge(int _cost, int _page_id, std::array<int, MAX_DEPTH> _path)
+  Edge(uint8_t _cost, int _page_id, std::array<int, MAX_DEPTH> _path)
       : cost(_cost), page_id(_page_id), path(_path) {}
 };
 
@@ -105,14 +107,14 @@ int search(std::string start, std::string goal) {
   }
   std::vector<std::vector<int>> ans;
   std::priority_queue<Edge, std::vector<Edge>, Compare> pq;
-  std::map<int, int> visit;
+  std::vector<uint8_t> visit(graph.size(), inf_cost);
   std::array<int, MAX_DEPTH> _ = {start_page_id};
-  pq.push(Edge(1, start_page_id, _));
-  int ok_cost = inf;
+  pq.emplace(1, start_page_id, _);
+  int ok_cost = inf_cost;
   while (pq.empty() == false && ans.size() < MAX_ANS_CNT) {
     auto [cost, page_id, path] = pq.top();
     pq.pop();
-    if (ok_cost != inf && cost > ok_cost) break;
+    if (ok_cost != inf_cost && cost > ok_cost) break;
     if (page_id == goal_page_id) {
       ok_cost = cost;
       std::vector<int> tmp(cost);
@@ -122,19 +124,18 @@ int search(std::string start, std::string goal) {
       ans.push_back(tmp);
       continue;
     }
-    if (visit.count(page_id) && visit[page_id] <= cost) continue;
+    if (visit[page_id] <= cost) continue;
     visit[page_id] = cost;
     for (auto next : graph[page_id]) {
-      int next_cost = cost + 1;
-      if (visit.count(next) && visit[next] <= next_cost) continue;
+      uint8_t next_cost = cost + 1;
+      if(visit[next] <= next_cost) continue;
       if (next_cost <= MAX_DEPTH && next_cost <= ok_cost) {
         path[cost] = next;
-        pq.push(Edge(next_cost, next, path));
-        path[cost] = -1;
+        pq.emplace(next_cost, next, path);
       }
     }
   }
-  if (ok_cost == inf) {
+  if (ok_cost == inf_cost) {
     std::cerr << "failed search" << std::endl;
     return 1;
   }
@@ -180,7 +181,6 @@ int main(int argc, char** argv) {
 
   timer.start();
   status = search(target, goal);
-  // timer.print();
   std::cout << timer.get() << "[s]" << std::endl;
 
   return status;
