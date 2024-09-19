@@ -1,6 +1,8 @@
 # wikipedia-golf
 wikipedia golfをするプログラムです。
+
 以下の例では、茶柱からアザラシへの経路を0.5[s]で求めています。
+
 データにはウィキペディアが公開しているデータベースを使用しています。
 ```
 $ ./build/wikipedia-golf --start "茶柱" --goal "アザラシ" --thread_number 6 --max_ans_number 50
@@ -98,7 +100,7 @@ mkdir -p graph_bin
 time ./build/create_graph_file --thread_number 6
 ```
 
-実行結果(CPU: core i5-1235U, RAM: 16GB)
+実行結果(CPU: core i5-1235U, RAM: 16GB, NVMe SSD)
 ```
 $ time ./build/create_graph_file --thread_number 6
 success
@@ -124,6 +126,10 @@ $ du -sh graph_bin/
 ```
 
 wikipedia-golfを実行
+
+start_nameとgoal_nameには好きな文字を入れてください。
+
+Wikipedia上に存在しない単語を入れるとエラーで止まります。
 ```
 ./build/wikipedia-golf --start "start_name" --goal "goal_name" --thread_number 6
 ```
