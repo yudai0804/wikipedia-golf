@@ -30,29 +30,25 @@
 
 namespace fs = std::filesystem;
 constexpr std::string DIRECTORY = "graph_bin/";
+constexpr std::string FILE_TYPE = ".bin";
 
 Wikipedia wiki(HOST, USER, PASSWORD);
 std::vector<std::vector<int>> graph;
+std::mutex graph_mtx;
+bool load_success = true;
+std::mutex load_success_mtx;
 
-int load() {
-  if ((fs::exists(DIRECTORY) && fs::is_directory(DIRECTORY)) == false) {
-    std::cerr << "directory error" << std::endl;
-    return 1;
-  }
-  int total_file = 0;
-  int max_file_number = -1;
-  for (const auto& entry : fs::directory_iterator(DIRECTORY)){
-    total_file++;
-    max_file_number = std::max(max_file_number, std::stoi(entry.path().filename()));
-  } 
-  std::cout << "total_file: " << total_file << std::endl;
-  graph.resize(max_file_number + 1);
+int thread_number = -1;
 
-  for (const auto& entry : fs::directory_iterator(DIRECTORY)) {
-    std::ifstream file(entry.path(), std::ios::binary);
+void load_task(std::vector<int> id, int start, int end) {
+  for (int i = start; i < end; i++) {
+    std::string filename = DIRECTORY + std::to_string(id[i]) + FILE_TYPE;
+    std::ifstream file(filename, std::ios::binary);
     if (!file) {
+      load_success_mtx.lock();
+      load_success = false;
       std::cerr << "Error opening file for reading" << std::endl;
-      return 1;
+      load_success_mtx.unlock();
     }
 
     // ファイルサイズを取得
@@ -64,16 +60,48 @@ int load() {
 
     // ファイルからデータを読み込む
     file.read(buffer, size);
-    int index = std::stoi(entry.path().filename());
+    int index = id[i];
+    graph_mtx.lock();
     graph[index].reserve(size / 4);
     for (int i = 0; i < size; i += 4) {
       int* tmp = (int*)&buffer[i];
       graph[index].push_back(*tmp);
     }
+    graph_mtx.unlock();
     delete[] buffer;
     file.close();
   }
-  return 0;
+}
+
+int load() {
+  if ((fs::exists(DIRECTORY) && fs::is_directory(DIRECTORY)) == false) {
+    std::cerr << "directory error" << std::endl;
+    return 1;
+  }
+  int total_file = 0;
+  int max_file_number = -1;
+  for (const auto& entry : fs::directory_iterator(DIRECTORY)) {
+    total_file++;
+    max_file_number =
+        std::max(max_file_number, std::stoi(entry.path().filename()));
+  }
+  std::cout << "total_file: " << total_file << std::endl;
+  graph.resize(max_file_number + 1);
+
+  auto id = wiki.get_all_page_id();
+
+  std::vector<std::thread> th(thread_number);
+  for (int i = 0; i < thread_number; i++) {
+    int start = id.size() / thread_number * i;
+    int end = start + id.size() / thread_number;
+    if (i == thread_number - 1) end = id.size() - 1;
+    th[i] = std::thread(load_task, id, start, end);
+  }
+  for (int i = 0; i < thread_number; i++) {
+    th[i].join();
+  }
+  if (thread_number == 0) load_task(id, 0, id.size() - 1);
+  return load_success ^ 0x01;
 }
 
 constexpr uint8_t MAX_DEPTH = 6;
@@ -120,7 +148,7 @@ int search(std::string start, std::string goal) {
     visit[page_id] = cost;
     for (auto next : graph[page_id]) {
       uint8_t next_cost = cost + 1;
-      if(visit[next] <= next_cost) continue;
+      if (visit[next] <= next_cost) continue;
       if (next_cost <= MAX_DEPTH && next_cost <= ok_cost) {
         path[cost] = next;
         q.emplace(next_cost, next, path);
@@ -137,7 +165,7 @@ int search(std::string start, std::string goal) {
   std::cout << "answer. total:" << ans.size() << std::endl;
   for (size_t i = 0; i < ans.size(); i++) {
     for (size_t j = 0; j < ans[i].size(); j++) {
-      if(cache.count(ans[i][j]) == false)
+      if (cache.count(ans[i][j]) == false)
         cache[ans[i][j]] = wiki.page_id_to_page_title(ans[i][j]);
       std::cout << cache[ans[i][j]];
       if (j == ans[i].size() - 1)
@@ -150,19 +178,29 @@ int search(std::string start, std::string goal) {
 }
 
 int main(int argc, char** argv) {
-  if (argc != 4) {
+  if (argc != 5) {
     std::cerr << "input error" << std::endl;
     return 1;
   }
 
   Timer timer;
-  max_ans_cost = atoi(argv[1]);
-  if(max_ans_cost <= 0) {
+
+  thread_number = atoi(argv[1]);
+
+  // メインスレッドの分を減らす
+  thread_number--;
+  if (thread_number < 0) {
+    std::cerr << "input error" << std::endl;
+    return 1;
+  }
+
+  max_ans_cost = atoi(argv[2]);
+  if (max_ans_cost <= 0) {
     std::cerr << "max_ans_cost error" << std::endl;
     return 1;
   }
-  std::string target = argv[2];
-  std::string goal = argv[3];
+  std::string target = argv[3];
+  std::string goal = argv[4];
 
   wiki.init();
 
