@@ -10,7 +10,6 @@
  */
 
 #include <chrono>
-#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -89,25 +88,31 @@ int load() {
   graph.resize(max_file_number + 1);
 
   auto id = wiki.get_all_page_id();
+  int load_thread_number = thread_number - 1;
+  if (thread_number == 1) {
+    load_task(id, 0, id.size() - 1);
+  } else {
+    std::vector<std::thread> th(load_thread_number);
+    for (int i = 0; i < load_thread_number; i++) {
+      int start = id.size() / load_thread_number * i;
+      int end = start + id.size() / load_thread_number;
+      if (i == load_thread_number - 1) end = id.size() - 1;
+      th[i] = std::thread(load_task, id, start, end);
+    }
+    for (int i = 0; i < load_thread_number; i++) {
+      th[i].join();
+    }
+  }
 
-  std::vector<std::thread> th(thread_number);
-  for (int i = 0; i < thread_number; i++) {
-    int start = id.size() / thread_number * i;
-    int end = start + id.size() / thread_number;
-    if (i == thread_number - 1) end = id.size() - 1;
-    th[i] = std::thread(load_task, id, start, end);
-  }
-  for (int i = 0; i < thread_number; i++) {
-    th[i].join();
-  }
-  if (thread_number == 0) load_task(id, 0, id.size() - 1);
-  return load_success ^ 0x01;
+  return (int)load_success ^ 0x01;
 }
 
 constexpr uint8_t MAX_DEPTH = 6;
-int max_ans_cost = 0;
 int inf = 1e9;
 uint8_t inf_cost = 255;
+
+int max_ans_number = 5;
+bool allow_similar_path = false;
 
 class Edge {
 public:
@@ -118,23 +123,20 @@ public:
       : cost(_cost), page_id(_page_id), path(_path) {}
 };
 
-// 似たようなルートを許可すると探索効率が落ちる&メモリバカ食いする
-bool allow_similar_path = false;
-
 int search(std::string start, std::string goal) {
   int start_page_id = wiki.page_title_to_page_id(start);
   int goal_page_id = wiki.page_title_to_page_id(goal);
   if (start_page_id == -1 || goal_page_id == -1) {
-    std::cerr << "error" << std::endl;
+    std::cerr << "The entered word does not exist." << std::endl;
     return 1;
   }
-  std::vector<std::vector<int>> ans;
+  std::vector<std::vector<int>> ans_id;
   std::queue<Edge> q;
   std::vector<uint8_t> visit(graph.size(), inf_cost);
   std::array<int, MAX_DEPTH> _ = {start_page_id};
   q.emplace(1, start_page_id, _);
   int ok_cost = inf_cost;
-  while (q.empty() == false && ans.size() < (size_t)max_ans_cost) {
+  while (q.empty() == false && ans_id.size() < (size_t)max_ans_number) {
     auto [cost, page_id, path] = q.front();
     q.pop();
     if (ok_cost != inf_cost && cost > ok_cost) break;
@@ -144,7 +146,7 @@ int search(std::string start, std::string goal) {
       for (int i = 0; i < cost; i++) {
         tmp[i] = path[i];
       }
-      ans.push_back(tmp);
+      ans_id.push_back(tmp);
       continue;
     }
     if (allow_similar_path && visit[page_id] < cost) continue;
@@ -165,47 +167,79 @@ int search(std::string start, std::string goal) {
     return 1;
   }
 
-  std::map<int, std::string> cache;
+  // create ans string data
 
-  std::cout << "total answer:" << ans.size() << std::endl;
-  for (size_t i = 0; i < ans.size(); i++) {
-    for (size_t j = 0; j < ans[i].size(); j++) {
-      if (cache.count(ans[i][j]) == false)
-        cache[ans[i][j]] = wiki.page_id_to_page_title(ans[i][j]);
-      std::cout << cache[ans[i][j]];
-      if (j == ans[i].size() - 1)
-        std::cout << std::endl;
-      else
-        std::cout << "->";
+  std::map<int, std::string> cache;
+  std::vector<std::vector<std::string>> ans(ans_id.size());
+
+  for (size_t i = 0; i < ans_id.size(); i++) {
+    for (size_t j = 0; j < ans_id[i].size(); j++) {
+      if (cache.count(ans_id[i][j]) == false)
+        cache[ans_id[i][j]] = wiki.page_id_to_page_title(ans_id[i][j]);
+      ans[i].push_back(cache[ans_id[i][j]]);
     }
   }
+
+  // print
+  std::cout << "total answer:" << ans.size() << std::endl;
+
+  for (size_t i = 0; i < ans.size(); i++) {
+    for (size_t j = 0; j < ans[i].size(); j++) {
+      std::cout << ans[i][j];
+      if (j != ans[i].size() - 1)
+        std::cout << "->";
+      else
+        std::cout << std::endl;
+    }
+  }
+
   return 0;
 }
 
 int main(int argc, char** argv) {
-  if (argc != 5) {
-    std::cerr << "input error" << std::endl;
-    return 1;
-  }
-
   Timer timer;
+  std::string start, goal;
+  bool parse_ok = true;
+  int tmp;
 
-  thread_number = atoi(argv[1]);
-
-  // メインスレッドの分を減らす
-  thread_number--;
-  if (thread_number < 0) {
+  // parse
+  for (int i = 1; i < argc; i++) {
+    std::string arg = argv[i];
+    if (arg == "--help" || arg == "-h") {
+      std::cout
+          << "Usage: program [--start WORD] [--goal WORD]\n"
+          << "If there are spaces included, please enclose the text in single quotes or double quotes.\n\n"
+          << "option arguments:\n"
+          << "--thread_number [NUM]   Thread number for loading.(default: 1)\n"
+          << "                        Please note that increasing the number of threads will not speed up the search.\n"
+          << "--max_ans_number [NUM]  Max answer number.(default: 5)\n"
+          << "--allow_similar_path    Allow similar_path.(default: false)\n"
+          << "                        Setting it to true will make it very slow.\n"
+          << std::endl;
+      return 0;
+    } else if (arg == "--start" && i + 1 < argc) {
+      start = argv[++i];
+    } else if (arg == "--goal" && i + 1 < argc) {
+      goal = argv[++i];
+    } else if (arg == "--thread_number" && i + 1 < argc) {
+      tmp = atoi(argv[++i]);
+      if (tmp <= 0) parse_ok = false;
+      thread_number = tmp;
+    } else if (arg == "--max_ans_number" && i + 1 < argc) {
+      tmp = atoi(argv[++i]);
+      if (tmp <= 0) parse_ok = false;
+      max_ans_number = tmp;
+    } else if (arg == "--allow_similar_path") {
+      allow_similar_path = true;
+    } else {
+      std::cerr << "input error" << std::endl;
+      return 1;
+    }
+  }
+  if (parse_ok == false) {
     std::cerr << "input error" << std::endl;
     return 1;
   }
-
-  max_ans_cost = atoi(argv[2]);
-  if (max_ans_cost <= 0) {
-    std::cerr << "max_ans_cost error" << std::endl;
-    return 1;
-  }
-  std::string target = argv[3];
-  std::string goal = argv[4];
 
   wiki.init();
 
@@ -220,7 +254,7 @@ int main(int argc, char** argv) {
   timer.print();
 
   timer.start();
-  status = search(target, goal);
+  status = search(start, goal);
   std::cout << timer.get() << "[s]" << std::endl;
 
   return status;
