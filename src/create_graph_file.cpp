@@ -32,14 +32,12 @@ namespace fs = std::filesystem;
 constexpr std::string DIRECTORY = "graph_bin/";
 constexpr std::string FILE_TYPE = ".bin";
 int PROGRESS_INTERVAL = 100;
-int progress = 0;
 bool is_success = true;
 std::mutex mtx;
 
 void task(std::shared_ptr<Wikipedia> wiki, int start, int end) {
   auto id = wiki->get_all_page_id();
   for (int i = start; i < end; i++) {
-    progress++;
     int target = id[i];
     std::string filename = DIRECTORY + std::to_string(target) + FILE_TYPE;
     if (fs::exists(filename)) continue;
@@ -63,12 +61,14 @@ void task(std::shared_ptr<Wikipedia> wiki, int start, int end) {
 int main(int argc, char **argv) {
   if (argc != 2) {
     std::cerr << "input error" << std::endl;
-    return 0;
+    return 1;
   }
   int thread_number = atoi(argv[1]);
-  if (thread_number == 0) {
+  // メインスレッドの分を減らす
+  thread_number--;
+  if (thread_number < 0) {
     std::cerr << "input error" << std::endl;
-    return 0;
+    return 1;
   }
   if (fs::exists(DIRECTORY) == false) {
     if (fs::is_directory(DIRECTORY) == false) {
@@ -95,6 +95,9 @@ int main(int argc, char **argv) {
   }
   for (int i = 0; i < thread_number; i++) {
     th[i].join();
+  }
+  if (thread_number == 0) {
+    task(wiki[0], 0, id.size() - 1);
   }
   if (is_success) {
     std::cout << "success" << std::endl;
