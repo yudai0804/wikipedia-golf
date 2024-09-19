@@ -77,7 +77,7 @@ int load() {
 }
 
 constexpr uint8_t MAX_DEPTH = 6;
-constexpr int MAX_ANS_CNT = 1;
+int max_ans_cost = 0;
 int inf = 1e9;
 uint8_t inf_cost = 255;
 
@@ -111,7 +111,7 @@ int search(std::string start, std::string goal) {
   std::array<int, MAX_DEPTH> _ = {start_page_id};
   pq.emplace(1, start_page_id, _);
   int ok_cost = inf_cost;
-  while (pq.empty() == false && ans.size() < MAX_ANS_CNT) {
+  while (pq.empty() == false && ans.size() < (size_t)max_ans_cost) {
     auto [cost, page_id, path] = pq.top();
     pq.pop();
     if (ok_cost != inf_cost && cost > ok_cost) break;
@@ -139,7 +139,7 @@ int search(std::string start, std::string goal) {
     std::cerr << "failed search" << std::endl;
     return 1;
   }
-  
+
   std::map<int, std::string> cache;
 
   std::cout << "answer. total:" << ans.size() << std::endl;
@@ -158,14 +158,19 @@ int search(std::string start, std::string goal) {
 }
 
 int main(int argc, char** argv) {
-  if (argc != 3) {
-    std::cout << "input error" << std::endl;
-    return 0;
+  if (argc != 4) {
+    std::cerr << "input error" << std::endl;
+    return 1;
   }
 
   Timer timer;
-  std::string target = argv[1];
-  std::string goal = argv[2];
+  max_ans_cost = atoi(argv[1]);
+  if(max_ans_cost <= 0) {
+    std::cerr << "max_ans_cost error" << std::endl;
+    return 1;
+  }
+  std::string target = argv[2];
+  std::string goal = argv[3];
 
   wiki.init();
 
