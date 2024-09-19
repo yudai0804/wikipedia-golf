@@ -12,6 +12,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -88,20 +89,18 @@ int load() {
   graph.resize(max_file_number + 1);
 
   auto id = wiki.get_all_page_id();
-  int load_thread_number = thread_number - 1;
-  if (thread_number == 1) {
-    load_task(id, 0, id.size() - 1);
-  } else {
-    std::vector<std::thread> th(load_thread_number);
-    for (int i = 0; i < load_thread_number; i++) {
-      int start = id.size() / load_thread_number * i;
-      int end = start + id.size() / load_thread_number;
-      if (i == load_thread_number - 1) end = id.size() - 1;
-      th[i] = std::thread(load_task, id, start, end);
-    }
-    for (int i = 0; i < load_thread_number; i++) {
-      th[i].join();
-    }
+  std::vector<std::future<void>> res(thread_number);
+  for (int i = 0; i < thread_number; i++) {
+    int start = id.size() / thread_number * i;
+    int end = start + id.size() / thread_number;
+    if (i == thread_number - 1) end = id.size() - 1;
+    if (i == 0)
+      res[i] = std::async(std::launch::deferred, load_task, id, start, end);
+    else
+      res[i] = std::async(std::launch::async, load_task, id, start, end);
+  }
+  for (int i = 0; i < thread_number; i++) {
+    res[i].get();
   }
 
   return (int)load_success ^ 0x01;

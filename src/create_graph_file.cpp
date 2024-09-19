@@ -12,6 +12,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -97,30 +98,24 @@ int main(int argc, char **argv) {
 
   timer.start();
 
-  if (thread_number == 1) {
-    std::shared_ptr<Wikipedia> wiki;
-    wiki = std::make_shared<Wikipedia>(HOST, USER, PASSWORD);
-    wiki->init();
-    auto id = wiki->get_all_page_id();
-    task(wiki, 0, id.size());
-  } else {
-    int task_thread_number = thread_number - 1;
-    std::vector<std::shared_ptr<Wikipedia>> wiki(task_thread_number);
-    for (int i = 0; i < task_thread_number; i++) {
-      wiki[i] = std::make_shared<Wikipedia>(HOST, USER, PASSWORD);
-      wiki[i]->init();
-    }
-    auto id = wiki[0]->get_all_page_id();
-    std::vector<std::thread> th(task_thread_number);
-    for (int i = 0; i < task_thread_number; i++) {
-      int start = id.size() / task_thread_number * i;
-      int end = start + id.size() / task_thread_number;
-      if (i == task_thread_number - 1) end = id.size() - 1;
-      th[i] = std::thread(task, wiki[i], start, end);
-    }
-    for (int i = 0; i < task_thread_number; i++) {
-      th[i].join();
-    }
+  std::vector<std::shared_ptr<Wikipedia>> wiki(thread_number);
+  for (int i = 0; i < thread_number; i++) {
+    wiki[i] = std::make_shared<Wikipedia>(HOST, USER, PASSWORD);
+    wiki[i]->init();
+  }
+  auto id = wiki[0]->get_all_page_id();
+  std::vector<std::future<void>> res(thread_number);
+  for (int i = 0; i < thread_number; i++) {
+    int start = id.size() / thread_number * i;
+    int end = start + id.size() / thread_number;
+    if (i == thread_number - 1) end = id.size() - 1;
+    if (i == 0)
+      res[i] = std::async(std::launch::deferred, task, wiki[i], start, end);
+    else
+      res[i] = std::async(std::launch::async, task, wiki[i], start, end);
+  }
+  for (int i = 0; i < thread_number; i++) {
+    res[i].get();
   }
 
   if (is_success) {
