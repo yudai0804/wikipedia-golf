@@ -207,7 +207,7 @@ int main(int argc, char** argv) {
     std::string arg = argv[i];
     if (arg == "--help" || arg == "-h") {
       std::cout
-          << "Usage: program [--start WORD] [--goal WORD]\n"
+          << "Usage: ./wikipedia-golf [--start WORD] [--goal WORD]\n"
           << "If there are spaces included, please enclose the text in single quotes or double quotes.\n\n"
           << "option arguments:\n"
           << "--thread_number [NUM]   Thread number for loading.(default: 1)\n"
@@ -255,7 +255,7 @@ int main(int argc, char** argv) {
 
   timer.start();
   status = search(start, goal);
-  std::cout << timer.get() << "[s]" << std::endl;
+  std::cout << "Time: " << timer.get() << "[s]" << std::endl;
 
   return status;
 }

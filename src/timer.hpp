@@ -30,7 +30,7 @@ public:
     seconds -= hours;  // 残りの秒数を計算
     auto minutes = std::chrono::duration_cast<std::chrono::minutes>(seconds);
     seconds -= minutes;  // 残りの秒数を計算
-    std::cout << hours.count() << "h" << minutes.count() << "m"
+    std::cout << "Time: " << hours.count() << "h" << minutes.count() << "m"
               << seconds.count() << "s" << std::endl;
   }
 
