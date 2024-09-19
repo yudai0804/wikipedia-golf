@@ -10,19 +10,17 @@
  */
 
 #include <chrono>
-#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <mutex>
-#include <queue>
-#include <set>
 #include <thread>
 #include <utility>
 #include <vector>
 
+#include "timer.hpp"
 #include "wikipedia.hpp"
 // for HOST, USER, PASSWORD
 #include "private_config.hpp"
@@ -59,17 +57,34 @@ void task(std::shared_ptr<Wikipedia> wiki, int start, int end) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2) {
+  Timer timer;
+  int tmp;
+  bool parse_ok = true;
+  int thread_number = 1;
+  // parse
+  for (int i = 1; i < argc; i++) {
+    std::string arg = argv[i];
+    if (arg == "--help" || arg == "-h") {
+      std::cout
+          << "Usage: ./create_graph_file\n"
+          << "option arguments:\n"
+          << "--thread_number [NUM]   Thread number for exporting.(default: 1)\n"
+          << std::endl;
+      return 0;
+    } else if (arg == "--thread_number" && i + 1 < argc) {
+      tmp = atoi(argv[++i]);
+      if (tmp <= 0) parse_ok = false;
+      thread_number = tmp;
+    } else {
+      std::cerr << "input error" << std::endl;
+      return 1;
+    }
+  }
+  if (parse_ok == false) {
     std::cerr << "input error" << std::endl;
     return 1;
   }
-  int thread_number = atoi(argv[1]);
-  // メインスレッドの分を減らす
-  thread_number--;
-  if (thread_number < 0) {
-    std::cerr << "input error" << std::endl;
-    return 1;
-  }
+
   if (fs::exists(DIRECTORY) == false) {
     if (fs::is_directory(DIRECTORY) == false) {
       std::cerr << DIRECTORY << "is file" << std::endl;
@@ -80,29 +95,39 @@ int main(int argc, char **argv) {
     }
   }
 
-  std::vector<std::shared_ptr<Wikipedia>> wiki(thread_number);
-  std::vector<std::thread> th(thread_number);
-  for (int i = 0; i < thread_number; i++) {
-    wiki[i] = std::make_shared<Wikipedia>(HOST, USER, PASSWORD);
-    wiki[i]->init();
+  timer.start();
+
+  if (thread_number == 1) {
+    std::shared_ptr<Wikipedia> wiki;
+    wiki = std::make_shared<Wikipedia>(HOST, USER, PASSWORD);
+    wiki->init();
+    auto id = wiki->get_all_page_id();
+    task(wiki, 0, id.size());
+  } else {
+    int task_thread_number = thread_number - 1;
+    std::vector<std::shared_ptr<Wikipedia>> wiki(task_thread_number);
+    for (int i = 0; i < task_thread_number; i++) {
+      wiki[i] = std::make_shared<Wikipedia>(HOST, USER, PASSWORD);
+      wiki[i]->init();
+    }
+    auto id = wiki[0]->get_all_page_id();
+    std::vector<std::thread> th(task_thread_number);
+    for (int i = 0; i < task_thread_number; i++) {
+      int start = id.size() / task_thread_number * i;
+      int end = start + id.size() / task_thread_number;
+      if (i == task_thread_number - 1) end = id.size() - 1;
+      th[i] = std::thread(task, wiki[i], start, end);
+    }
+    for (int i = 0; i < task_thread_number; i++) {
+      th[i].join();
+    }
   }
-  auto id = wiki[0]->get_all_page_id();
-  for (int i = 0; i < thread_number; i++) {
-    int start = id.size() / thread_number * i;
-    int end = start + id.size() / thread_number;
-    if (i == thread_number - 1) end = id.size() - 1;
-    th[i] = std::thread(task, wiki[i], start, end);
-  }
-  for (int i = 0; i < thread_number; i++) {
-    th[i].join();
-  }
-  if (thread_number == 0) {
-    task(wiki[0], 0, id.size() - 1);
-  }
+
   if (is_success) {
     std::cout << "success" << std::endl;
   } else {
     std::cout << "failed" << std::endl;
   }
-  return 0;
+  timer.print();
+  return (int)is_success ^ 0x01;
 }
