@@ -139,7 +139,7 @@ Wikipedia上に存在しない単語を入れるとエラーで止まります�
 $ ./build/wikipedia-golf --help
 ```
 ```
-Usage: ./wikipedia-golf [--start WORD] [--goal WORD]
+Usage: ./wikipedia-golf
 If there are spaces included, please enclose the text in single quotes or double quotes.
 
 option arguments:
@@ -148,6 +148,8 @@ option arguments:
 --max_ans_number [NUM]  Max answer number.(default: 5)
 --allow_similar_path    Allow similar_path.(default: false)
                         Setting it to true will make it very slow.
+
+
 ```
 
 # 使用ライブラリ

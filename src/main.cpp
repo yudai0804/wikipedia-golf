@@ -47,7 +47,7 @@ void load_task(std::vector<int> id, int start, int end) {
     if (!file) {
       load_success_mtx.lock();
       load_success = false;
-      std::cerr << "Error opening file for reading" << std::endl;
+      std::cerr << "[ERROR] Error opening file for reading" << std::endl;
       load_success_mtx.unlock();
     }
 
@@ -75,7 +75,7 @@ void load_task(std::vector<int> id, int start, int end) {
 
 int load() {
   if ((fs::exists(DIRECTORY) && fs::is_directory(DIRECTORY)) == false) {
-    std::cerr << "directory error" << std::endl;
+    std::cerr << "[ERROR] directory error" << std::endl;
     return 1;
   }
   int total_file = 0;
@@ -85,7 +85,7 @@ int load() {
     max_file_number =
         std::max(max_file_number, std::stoi(entry.path().filename()));
   }
-  std::cout << "total_file: " << total_file << std::endl;
+  std::cout << "[INFO] total_file: " << total_file << std::endl;
   graph.resize(max_file_number + 1);
 
   auto id = wiki.get_all_page_id();
@@ -126,7 +126,7 @@ int search(std::string start, std::string goal) {
   int start_page_id = wiki.page_title_to_page_id(start);
   int goal_page_id = wiki.page_title_to_page_id(goal);
   if (start_page_id == -1 || goal_page_id == -1) {
-    std::cerr << "The entered word does not exist." << std::endl;
+    std::cerr << "[ERROR] The entered word does not exist." << std::endl;
     return 1;
   }
   std::vector<std::vector<int>> ans_id;
@@ -162,7 +162,7 @@ int search(std::string start, std::string goal) {
     }
   }
   if (ok_cost == inf_cost) {
-    std::cerr << "failed search" << std::endl;
+    std::cerr << "[ERROR] failed search" << std::endl;
     return 1;
   }
 
@@ -181,8 +181,10 @@ int search(std::string start, std::string goal) {
 
   // print
   std::cout << "total answer:" << ans.size() << std::endl;
+  std::cout << "cost:" << ok_cost - 1 << std::endl;
 
   for (size_t i = 0; i < ans.size(); i++) {
+    std::cout << i << ":";
     for (size_t j = 0; j < ans[i].size(); j++) {
       std::cout << ans[i][j];
       if (j != ans[i].size() - 1)
@@ -191,6 +193,7 @@ int search(std::string start, std::string goal) {
         std::cout << std::endl;
     }
   }
+  std::cout << "[INFO] search success" << std::endl;
 
   return 0;
 }
@@ -206,7 +209,7 @@ int main(int argc, char** argv) {
     std::string arg = argv[i];
     if (arg == "--help" || arg == "-h") {
       std::cout
-          << "Usage: ./wikipedia-golf [--start WORD] [--goal WORD]\n"
+          << "Usage: ./wikipedia-golf\n"
           << "If there are spaces included, please enclose the text in single quotes or double quotes.\n\n"
           << "option arguments:\n"
           << "--thread_number [NUM]   Thread number for loading.(default: 1)\n"
@@ -216,10 +219,6 @@ int main(int argc, char** argv) {
           << "                        Setting it to true will make it very slow.\n"
           << std::endl;
       return 0;
-    } else if (arg == "--start" && i + 1 < argc) {
-      start = argv[++i];
-    } else if (arg == "--goal" && i + 1 < argc) {
-      goal = argv[++i];
     } else if (arg == "--thread_number" && i + 1 < argc) {
       tmp = atoi(argv[++i]);
       if (tmp <= 0) parse_ok = false;
@@ -231,30 +230,40 @@ int main(int argc, char** argv) {
     } else if (arg == "--allow_similar_path") {
       allow_similar_path = true;
     } else {
-      std::cerr << "input error" << std::endl;
+      std::cerr << "[ERROR] input error" << std::endl;
       return 1;
     }
   }
   if (parse_ok == false) {
-    std::cerr << "input error" << std::endl;
+    std::cerr << "[ERROR] input error" << std::endl;
     return 1;
   }
+
+  std::cout << "[INFO] load start" << std::endl;
 
   wiki.init();
 
   timer.start();
   int status = load();
   if (status == 0) {
-    std::cout << "load success" << std::endl;
+    std::cout << "[INFO] load success" << std::endl;
   } else {
-    std::cout << "load failed" << std::endl;
+    std::cerr << "[ERROR] load failed" << std::endl;
     return status;
   }
+  std::cout << "[INFO] ";
   timer.print();
 
-  timer.start();
-  status = search(start, goal);
-  std::cout << "Time: " << timer.get() << "[s]" << std::endl;
+  std::cout << "Please input word" << std::endl;
+  while (1) {
+    std::cout << "start word:" << std::flush;
+    std::cin >> start;
+    std::cout << "goal word:" << std::flush;
+    std::cin >> goal;
+    timer.start();
+    status = search(start, goal);
+    std::cout << "[INFO] Time: " << timer.get() << "[s]" << std::endl;
+  }
 
-  return status;
+  return 0;
 }
