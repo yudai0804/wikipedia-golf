@@ -3,13 +3,27 @@ wikipedia golfをするプログラムです。
 
 https://github.com/user-attachments/assets/30ccb6f8-cd4e-450b-9739-1000b7327466
 
+## 特徴
+- 最短経路を短時間で導出可能
+- WikipediaのSQLをそのまま使用せず、SQLの内容をメモリに取り込んでいるため、非常に高速
+- SQLの内容をメモリに取り込む際には、高速化のためにマルチスレッドを使用
+- C++20
+
+## Wikipedia golfって何？
+Wikipediaの単語から単語までを何手で移動できるかを競う遊びです。  
+Wikipedia golfは全ての単語において、6手以内で可能と言われています。
+
+## 似たようなサービス
+https://www.sixdegreesofwikipedia.com/
+
 # Setup
 
 requirements
-- Linux(debian12)
-- gcc(for C++20)
+- Linux(Debian12)
+- gcc(C++20)
 - cmake
 - mySQL
+- [mysql-connector-cpp](https://github.com/mysql/mysql-connector-cpp)
 
 ## mySQL
 
@@ -113,9 +127,3 @@ option arguments:
 --output [PATH]         Output directory path.(defualt: graph_bin)
 --thread_number [NUM]   Thread number for exporting.(default: 1)
 ```
-
-# 使用ライブラリ
-[mysql-connector-cpp](https://github.com/mysql/mysql-connector-cpp)
-
-# 似たようなサービス
-https://www.sixdegreesofwikipedia.com/
