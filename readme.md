@@ -1,8 +1,7 @@
 # wikipedia-golf
 wikipedia golfをするプログラムです。
 
-
-https://github.com/user-attachments/assets/f1785563-a47b-4c56-a71e-191b35d4076c
+https://github.com/user-attachments/assets/30ccb6f8-cd4e-450b-9739-1000b7327466
 
 ## example
 
