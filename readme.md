@@ -83,15 +83,14 @@ mysql -u root jawikipedia < jawiki-latest-linktarget.sql
 wikipediaのデータベースの詳細
 https://ja.wikipedia.org/wiki/Wikipedia:%E3%83%87%E3%83%BC%E3%82%BF%E3%83%99%E3%83%BC%E3%82%B9%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89
 
-# Build
-
-プログラムを実行する前に、mySQLのセットアップを行う必要があります。(セットアップ方法は後述)
+# C++
+## Build
 ```
 cmake -S . -B build
 cmake --build
 ```
 
-create_graph_file実行
+## create_graph_file実行
 WikipediaのSQLを扱いやすく加工したバイナリファイルに変換します。
 
 ```
@@ -125,31 +124,36 @@ $ du -sh graph_bin/
 9.0G    graph_bin/
 ```
 
-wikipedia-golfを実行
-
-start_nameとgoal_nameには好きな文字を入れてください。
-
-Wikipedia上に存在しない単語を入れるとエラーで止まります。
+## wikipedia-golfを実行
+Wikipedia golfを対話形式で行います。
 ```
-./build/wikipedia-golf --start "start_name" --goal "goal_name" --thread_number 6
+./build/wikipedia-golf --thread_number 6 --max_ans_number 50
 ```
 
 # Help
 ```
-$ ./build/wikipedia-golf --help
+./wikipedia-golf --help
 ```
 ```
 Usage: ./wikipedia-golf
 If there are spaces included, please enclose the text in single quotes or double quotes.
 
 option arguments:
+--input [PATH]          Input directory path.(defualt: graph_bin)
 --thread_number [NUM]   Thread number for loading.(default: 1)
                         Please note that increasing the number of threads will not speed up the search.
 --max_ans_number [NUM]  Max answer number.(default: 5)
 --allow_similar_path    Allow similar_path.(default: false)
                         Setting it to true will make it very slow.
-
-
+```
+```
+./create_graph_file --help
+```
+```
+Usage: ./create_graph_file
+option arguments:
+--output [PATH]         Output directory path.(defualt: graph_bin)
+--thread_number [NUM]   Thread number for exporting.(default: 1)
 ```
 
 # 使用ライブラリ

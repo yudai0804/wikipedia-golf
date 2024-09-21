@@ -28,8 +28,8 @@
 
 namespace fs = std::filesystem;
 
-constexpr std::string DIRECTORY = "graph_bin/";
-constexpr std::string FILE_TYPE = ".bin";
+fs::path directory = "graph_bin/";
+std::string filetype = ".bin";
 int PROGRESS_INTERVAL = 100;
 bool is_success = true;
 std::mutex mtx;
@@ -38,11 +38,10 @@ void task(std::shared_ptr<Wikipedia> wiki, int start, int end) {
   auto id = wiki->get_all_page_id();
   for (int i = start; i < end; i++) {
     int target = id[i];
-    std::string filename = DIRECTORY + std::to_string(target) + FILE_TYPE;
+    fs::path filename = directory / fs::path(std::to_string(id[i]) + filetype);
     if (fs::exists(filename)) continue;
 
-    std::ofstream file(DIRECTORY + std::to_string(target) + FILE_TYPE,
-                       std::ios::binary);
+    std::ofstream file(filename, std::ios::binary);
     if (!file) {
       std::lock_guard<std::mutex> lock(mtx);
       is_success = false;
@@ -69,9 +68,12 @@ int main(int argc, char **argv) {
       std::cout
           << "Usage: ./create_graph_file\n"
           << "option arguments:\n"
+          << "--output [PATH]         Output directory path.(defualt: graph_bin)\n"
           << "--thread_number [NUM]   Thread number for exporting.(default: 1)\n"
           << std::endl;
       return 0;
+    } else if (arg == "--output" && i + 1 < argc) {
+      directory = argv[++i];
     } else if (arg == "--thread_number" && i + 1 < argc) {
       tmp = atoi(argv[++i]);
       if (tmp <= 0) parse_ok = false;
@@ -86,11 +88,11 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  if (fs::exists(DIRECTORY) == false) {
-    if (fs::is_directory(DIRECTORY) == false) {
-      std::cerr << DIRECTORY << "is file" << std::endl;
+  if (fs::exists(directory) == false) {
+    if (fs::is_directory(directory) == false) {
+      std::cerr << directory << "is file" << std::endl;
       return 1;
-    } else if (fs::create_directory(DIRECTORY) == false) {
+    } else if (fs::create_directory(directory) == false) {
       std::cerr << "create directory failed" << std::endl;
       return 1;
     }

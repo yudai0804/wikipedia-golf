@@ -29,8 +29,8 @@
 #include "private_config.hpp"
 
 namespace fs = std::filesystem;
-constexpr std::string DIRECTORY = "graph_bin/";
-constexpr std::string FILE_TYPE = ".bin";
+fs::path directory = "graph_bin/";
+std::string filetype = ".bin";
 
 Wikipedia wiki(HOST, USER, PASSWORD);
 std::vector<std::vector<int>> graph;
@@ -42,7 +42,7 @@ int thread_number = -1;
 
 void load_task(std::vector<int> id, int start, int end) {
   for (int i = start; i < end; i++) {
-    std::string filename = DIRECTORY + std::to_string(id[i]) + FILE_TYPE;
+    fs::path filename = directory / fs::path(std::to_string(id[i]) + filetype);
     std::ifstream file(filename, std::ios::binary);
     if (!file) {
       load_success_mtx.lock();
@@ -74,13 +74,13 @@ void load_task(std::vector<int> id, int start, int end) {
 }
 
 int load() {
-  if ((fs::exists(DIRECTORY) && fs::is_directory(DIRECTORY)) == false) {
+  if ((fs::exists(directory) && fs::is_directory(directory)) == false) {
     std::cerr << "[ERROR] directory error" << std::endl;
     return 1;
   }
   int total_file = 0;
   int max_file_number = -1;
-  for (const auto& entry : fs::directory_iterator(DIRECTORY)) {
+  for (const auto& entry : fs::directory_iterator(directory)) {
     total_file++;
     max_file_number =
         std::max(max_file_number, std::stoi(entry.path().filename()));
@@ -212,6 +212,7 @@ int main(int argc, char** argv) {
           << "Usage: ./wikipedia-golf\n"
           << "If there are spaces included, please enclose the text in single quotes or double quotes.\n\n"
           << "option arguments:\n"
+          << "--input [PATH]          Input directory path.(defualt: graph_bin)\n"
           << "--thread_number [NUM]   Thread number for loading.(default: 1)\n"
           << "                        Please note that increasing the number of threads will not speed up the search.\n"
           << "--max_ans_number [NUM]  Max answer number.(default: 5)\n"
@@ -219,6 +220,8 @@ int main(int argc, char** argv) {
           << "                        Setting it to true will make it very slow.\n"
           << std::endl;
       return 0;
+    } else if (arg == "--input" && i + 1 < argc) {
+      directory = argv[++i];
     } else if (arg == "--thread_number" && i + 1 < argc) {
       tmp = atoi(argv[++i]);
       if (tmp <= 0) parse_ok = false;
@@ -257,9 +260,11 @@ int main(int argc, char** argv) {
   std::cout << "Please input word" << std::endl;
   while (1) {
     std::cout << "start word:" << std::flush;
-    std::cin >> start;
+    std::getline(std::cin, start);
+    if (std::cin.eof()) return 0;
     std::cout << "goal word:" << std::flush;
-    std::cin >> goal;
+    std::getline(std::cin, goal);
+    if (std::cin.eof()) return 0;
     timer.start();
     status = search(start, goal);
     std::cout << "[INFO] Time: " << timer.get() << "[s]" << std::endl;
