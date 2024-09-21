@@ -1,7 +1,8 @@
 # wikipedia-golf
 wikipedia golfをするプログラムです。
 
-[![movie](https://img.youtube.com/vi/RVjRU864wxw/0.jpg)](https://www.youtube.com/watch?v=RVjRU864wxw)
+
+https://github.com/user-attachments/assets/f1785563-a47b-4c56-a71e-191b35d4076c
 
 ## example
 
