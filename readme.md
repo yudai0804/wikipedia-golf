@@ -1,6 +1,8 @@
 # wikipedia-golf
 wikipedia golfをするプログラムです。
 
+[![movie](http://img.youtube.com/vi/{RVjRU864wxw}/0.jpg)](https://www.youtube.com/watch?v={RVjRU864wxw})
+
 ## example
 
 茶柱->アザラシの経路です。経路の計算は0.5[s]で実行可能です。
