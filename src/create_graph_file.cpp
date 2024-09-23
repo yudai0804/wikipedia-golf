@@ -58,6 +58,18 @@ void task(std::shared_ptr<Wikipedia> wiki, int start, int end) {
   }
 }
 
+void write_page_title_to_page_id(std::shared_ptr<Wikipedia> wiki) {
+  fs::path filename = directory / std::string("0_page_title_to_page_id.txt");
+  if (fs::exists(filename)) return;
+  std::ofstream file(filename);
+
+  std::map<std::string, int> mp = wiki->get_map();
+  for (auto itr = mp.begin(); itr != mp.end(); itr++) {
+    file << itr->second << "," << itr->first << std::endl;
+  }
+  file.close();
+}
+
 int main(int argc, char **argv) {
   try {
     Timer timer;
@@ -133,6 +145,9 @@ int main(int argc, char **argv) {
       wiki[i] = std::make_shared<Wikipedia>();
       wiki[i]->init(host, user, password);
     }
+
+    write_page_title_to_page_id(wiki[0]);
+
     auto id = wiki[0]->get_all_page_id();
     std::vector<std::future<void>> res(thread_number);
     for (int i = 0; i < thread_number; i++) {

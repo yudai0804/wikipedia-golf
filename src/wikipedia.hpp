@@ -104,4 +104,6 @@ public:
     }
     return res;
   }
+
+  std::map<std::string, int> get_map(void) { return mp; }
 };

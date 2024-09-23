@@ -68,19 +68,19 @@ WikipediaのSQLを扱いやすく加工したバイナリファイルに変換�
 ```
 mkdir -p graph_bin
 # スレッド数は6で設定
-time ./build/create_graph_file --thread_number 6
+time ./build/create_graph_file root tcp://127.0.0.1:3306 --thread_number 6
 ```
 
 実行結果(CPU: core i5-1235U, RAM: 16GB, NVMe SSD)
 ```
-$ time ./build/create_graph_file --thread_number 6
+$ time ./build/create_graph_file root tcp://127.0.0.1:3306 --thread_number 6
 success
 
 real    32m23.187s
 user    8m4.320s
 sys     4m26.414s
 
-$ time ./build/create_graph_file --thread_number 1
+$ time ./build/create_graph_file root tcp://127.0.0.1:3306 --thread_number 1
 success
 
 real    109m41.642s
@@ -91,15 +91,17 @@ sys     8m11.272s
 生成されたbinの情報
 ```
 $ find graph_bin/ -type f | wc -l
-2318460
+2318462
 $ du -sh graph_bin/
 9.0G    graph_bin/
 ```
 
 ## wikipedia-golfを実行
-Wikipedia golfを対話形式で行います。
+Wikipedia golfを対話形式で行います。  
+-use_fast_queueのオプションをつけるとメモリの使用量が増える代わりに、動作が速くなります。  
+メモリはだいたい5GBくらい使います。オプションをつけない場合、2~3GB程度です。
 ```
-./build/wikipedia-golf --thread_number 6 --max_ans_number 50
+./build/wikipedia-golf --thread_number 6 --max_ans_number 50 -use_fast_queue
 ```
 
 # Help
@@ -108,22 +110,28 @@ Wikipedia golfを対話形式で行います。
 ```
 ```
 Usage: ./wikipedia-golf
-If there are spaces included, please enclose the text in single quotes or double quotes.
 
 option arguments:
+-h --help               Show help
+-v --version            Show version
 --input [PATH]          Input directory path.(defualt: graph_bin)
 --thread_number [NUM]   Thread number for loading.(default: 1)
                         Please note that increasing the number of threads will not speed up the search.
 --max_ans_number [NUM]  Max answer number.(default: 5)
 --allow_similar_path    Allow similar_path.(default: false)
                         Setting it to true will make it very slow.
+--use_fast_queue        Using fast queue.
+                        Fast queue is using 4GB RAM.
 ```
 ```
 ./create_graph_file --help
 ```
 ```
 Usage: ./create_graph_file
+Usage: ./create_graph_file [USER] [HOST]
 option arguments:
+-h --help               Show help
+-v --version            Show version
 --output [PATH]         Output directory path.(defualt: graph_bin)
 --thread_number [NUM]   Thread number for exporting.(default: 1)
 ```
