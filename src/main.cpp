@@ -9,6 +9,11 @@
  *
  */
 
+#include <stdio.h>
+#include <termios.h>
+#include <unistd.h>
+
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -24,21 +29,21 @@
 #include <utility>
 #include <vector>
 
-#include "exception.hpp"
+#include "log.hpp"
 #include "timer.hpp"
-#include "wikipedia.hpp"
-// for HOST, USER, PASSWORD
-#include "private_config.hpp"
 
 namespace fs = std::filesystem;
 fs::path directory = "graph_bin/";
 std::string filetype = ".bin";
 
-Wikipedia wiki(HOST, USER, PASSWORD);
 std::vector<std::vector<int>> graph;
 std::mutex graph_mtx;
 bool load_success = true;
 std::mutex load_success_mtx;
+
+std::map<int, std::string> page_id_to_page_title;
+std::map<std::string, int> page_title_to_page_id;
+std::vector<int> all_page_id;
 
 int thread_number = -1;
 
@@ -74,44 +79,72 @@ void load_task(std::vector<int> id, int start, int end) {
   }
 }
 
+int load_page_title_to_page_id() {
+  fs::path filename = directory / fs::path("0_page_title_to_page_id.txt");
+  std::ifstream file(filename);
+
+  if (!file) {
+    EXCEPTION("File open failed");
+  }
+
+  std::string line;
+  int max_page_number = -1;
+  while (std::getline(file, line)) {
+    for (size_t i = 0; i < line.size(); i++) {
+      if (line[i] != ',') continue;
+      std::string _num, str;
+      int num;
+      for (size_t j = 0; j < i; j++) _num += line[j];
+      num = std::stoi(_num);
+      for (size_t j = i + 1; j < line.size(); j++) {
+        str += line[j];
+      }
+      page_id_to_page_title[num] = str;
+      page_title_to_page_id[str] = num;
+      if (num > max_page_number) max_page_number = num;
+      break;
+    }
+  }
+
+  file.close();
+  return max_page_number;
+}
+
 void load() {
   if ((fs::exists(directory) && fs::is_directory(directory)) == false) {
-    throw EXCEPTION("Directory Error");
+    throw EXCEPTION("Directory error");
   }
-  int total_file = 0;
-  int max_file_number = -1;
-  for (const auto& entry : fs::directory_iterator(directory)) {
-    total_file++;
-    max_file_number =
-        std::max(max_file_number, std::stoi(entry.path().filename()));
-  }
-  std::cout << "[INFO] total_file: " << total_file << std::endl;
-  graph.resize(max_file_number + 1);
+  int max_page_number = load_page_title_to_page_id();
+  graph.resize(max_page_number + 1);
 
-  auto id = wiki.get_all_page_id();
+  for (auto itr = page_id_to_page_title.begin();
+       itr != page_id_to_page_title.end(); itr++) {
+    all_page_id.push_back(itr->first);
+  }
   std::vector<std::future<void>> res(thread_number);
   for (int i = 0; i < thread_number; i++) {
-    int start = id.size() / thread_number * i;
-    int end = start + id.size() / thread_number;
-    if (i == thread_number - 1) end = id.size() - 1;
+    int start = all_page_id.size() / thread_number * i;
+    int end = start + all_page_id.size() / thread_number;
+    if (i == thread_number - 1) end = all_page_id.size() - 1;
     if (i == 0)
-      res[i] = std::async(std::launch::deferred, load_task, id, start, end);
+      res[i] =
+          std::async(std::launch::deferred, load_task, all_page_id, start, end);
     else
-      res[i] = std::async(std::launch::async, load_task, id, start, end);
+      res[i] =
+          std::async(std::launch::async, load_task, all_page_id, start, end);
   }
   for (int i = 0; i < thread_number; i++) {
     res[i].get();
   }
 
   if (load_success == false) {
-    throw EXCEPTION("[ERROR] load failed");
+    throw EXCEPTION("Load failed");
   } else {
-    std::cout << "[INFO] load success" << std::endl;
+    LOG_OK << "Load success" << std::endl;
   }
 }
 
-constexpr uint8_t MAX_DEPTH = 6;
-int inf = 1e9;
+constexpr uint8_t MAX_DEPTH = 8;
 uint8_t inf_cost = 255;
 
 int max_ans_number = 5;
@@ -140,32 +173,32 @@ public:
   void push(T value) {
     _buffer[_r] = value;
     _r = (_r + 1) % _size;
-    if (_r == _l) throw EXCEPTION("buffer error");
+    if (_l == _r) throw EXCEPTION("Buffer error");
   }
   template <class... Args>
   void emplace(Args... args) {
     _buffer[_r] = T(args...);
     _r = (_r + 1) % _size;
-    if (_r == _l) throw EXCEPTION("buffer error");
+    if (_l == _r) throw EXCEPTION("Buffer error");
   }
   T front() { return _buffer[_l]; }
   void pop() {
-    if (_r == _l) throw EXCEPTION("buffer error");
+    if (_l == _r) throw EXCEPTION("Buffer error");
     _l = (_l + 1) % _size;
   }
-  bool empty() { return _r == _l; }
+  bool empty() { return _l == _r; }
   void clear() { _l = _r = 0; }
 };
 
 template <typename Queue>
 int search(Queue& q, std::string start, std::string goal) {
-  int start_page_id = wiki.page_title_to_page_id(start);
-  int goal_page_id = wiki.page_title_to_page_id(goal);
-  if (start_page_id == -1 || goal_page_id == -1) {
-    std::cerr << "\033[31m[ERROR]\033[0m The entered word does not exist."
-              << std::endl;
+  if (page_title_to_page_id.count(start) == 0 ||
+      page_title_to_page_id.count(goal) == 0) {
+    LOG_ERROR << "The entered word does not exist." << std::endl;
     return 1;
   }
+  int start_page_id = page_title_to_page_id[start];
+  int goal_page_id = page_title_to_page_id[goal];
   std::vector<std::vector<int>> ans_id;
   std::vector<uint8_t> visit(graph.size(), inf_cost);
   std::array<int, MAX_DEPTH> _ = {start_page_id};
@@ -199,26 +232,26 @@ int search(Queue& q, std::string start, std::string goal) {
     }
   }
   if (ok_cost == inf_cost) {
-    std::cerr << "\033[31m[ERROR]\033[0m failed search" << std::endl;
+    LOG_ERROR << "Failed search" << std::endl;
     return 1;
   }
 
   // create ans string data
-
-  std::map<int, std::string> cache;
   std::vector<std::vector<std::string>> ans(ans_id.size());
 
   for (size_t i = 0; i < ans_id.size(); i++) {
     for (size_t j = 0; j < ans_id[i].size(); j++) {
-      if (cache.count(ans_id[i][j]) == false)
-        cache[ans_id[i][j]] = wiki.page_id_to_page_title(ans_id[i][j]);
-      ans[i].push_back(cache[ans_id[i][j]]);
+      std::string str = page_id_to_page_title[ans_id[i][j]];
+      ans[i].push_back(str);
     }
   }
 
   // print
-  std::cout << "total answer:" << ans.size() << std::endl;
-  std::cout << "cost:" << ok_cost - 1 << std::endl;
+  std::cout
+      << "--------------------------------------------------------------------------------"
+      << std::endl;
+  std::cout << "Total answer: " << ans.size() << std::endl;
+  std::cout << "Cost: " << ok_cost - 1 << std::endl;
 
   for (size_t i = 0; i < ans.size(); i++) {
     std::cout << i << ":";
@@ -230,7 +263,11 @@ int search(Queue& q, std::string start, std::string goal) {
         std::cout << std::endl;
     }
   }
-  std::cout << "[INFO] search success" << std::endl;
+  std::cout
+      << "--------------------------------------------------------------------------------"
+      << std::endl;
+
+  LOG_OK << "Search success" << std::endl;
 
   return 0;
 }
@@ -247,8 +284,7 @@ int main(int argc, char** argv) {
       std::string arg = argv[i];
       if (arg == "--help" || arg == "-h") {
         std::cout
-            << "Usage: ./wikipedia-golf\n"
-            << "If there are spaces included, please enclose the text in single quotes or double quotes.\n\n"
+            << "Usage: ./wikipedia-golf\n\n"
             << "option arguments:\n"
             << "-h --help               Show help\n"
             << "-v --version            Show version\n"
@@ -281,20 +317,20 @@ int main(int argc, char** argv) {
       } else if (arg == "--use_fast_queue") {
         use_fast_queue = true;
       } else {
-        throw EXCEPTION("Parse error");
+        std::string msg;
+        msg = "Parse error.\n\"\033[1m" + arg + "\033[0m\" is unkwnon.";
+        throw EXCEPTION(msg);
       }
     }
     if (parse_ok == false) {
       throw EXCEPTION("Parse error");
     }
 
-    std::cout << "[INFO] load start" << std::endl;
-
-    wiki.init();
+    LOG_INFO << "Load start" << std::endl;
 
     timer.start();
     load();
-    std::cout << "[INFO] ";
+    LOG_INFO;
     timer.print();
 
     std::queue<Edge> std_queue;
@@ -302,12 +338,12 @@ int main(int argc, char** argv) {
     if (use_fast_queue) {
       fast_queue = FastQueue<Edge>(4e9 / sizeof(Edge));
     }
-    std::cout << "Please input word" << std::endl;
     while (1) {
-      std::cout << "start word:" << std::flush;
+      std::cout << "\033[1mPlease input word\033[0m" << std::endl;
+      std::cout << "Start word:" << std::flush;
       std::getline(std::cin, start);
       if (std::cin.eof()) return 0;
-      std::cout << "goal word:" << std::flush;
+      std::cout << "Goal word:" << std::flush;
       std::getline(std::cin, goal);
       if (std::cin.eof()) return 0;
       timer.start();
@@ -318,7 +354,7 @@ int main(int argc, char** argv) {
         std_queue = std::queue<Edge>();
         search(std_queue, start, goal);
       }
-      std::cout << "[INFO] Time: " << timer.get() << "[s]" << std::endl;
+      LOG_INFO << "Time: " << timer.get() << "[s]" << std::endl;
     }
 
     return 0;
