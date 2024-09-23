@@ -1,7 +1,7 @@
 # wikipedia-golf
 wikipedia golfをするプログラムです。
 
-https://github.com/user-attachments/assets/30ccb6f8-cd4e-450b-9739-1000b7327466
+https://github.com/user-attachments/assets/52ac00e7-4303-4c19-b006-312776250287
 
 ## 特徴
 - 最短経路を短時間で導出可能
