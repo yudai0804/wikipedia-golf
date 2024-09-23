@@ -40,6 +40,7 @@ private:
   std::map<std::string, int> mp;
 
 public:
+  Wikipedia() {}
   Wikipedia(std::string _host, std::string _user, std::string _password)
       : host(_host), user(_user), password(_password) {}
   void init() {
@@ -55,6 +56,12 @@ public:
     while (res->next()) {
       mp[res->getString("page_title")] = res->getInt("page_id");
     }
+  }
+  void init(std::string _host, std::string _user, std::string _password) {
+    host = _host;
+    user = _user;
+    password = _password;
+    init();
   }
   int page_title_to_page_id(std::string page_title) {
     std::shared_ptr<sql::ResultSet> res;

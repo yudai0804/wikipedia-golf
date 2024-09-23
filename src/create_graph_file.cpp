@@ -9,6 +9,10 @@
  *
  */
 
+#include <stdio.h>
+#include <termios.h>
+#include <unistd.h>
+
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -21,17 +25,14 @@
 #include <utility>
 #include <vector>
 
-#include "exception.hpp"
+#include "log.hpp"
 #include "timer.hpp"
 #include "wikipedia.hpp"
-// for HOST, USER, PASSWORD
-#include "private_config.hpp"
 
 namespace fs = std::filesystem;
 
 fs::path directory = "graph_bin/";
 std::string filetype = ".bin";
-int PROGRESS_INTERVAL = 100;
 bool is_success = true;
 std::mutex mtx;
 
@@ -63,12 +64,13 @@ int main(int argc, char **argv) {
     int tmp;
     bool parse_ok = true;
     int thread_number = 1;
+    std::string user, host, password;
     // parse
     for (int i = 1; i < argc; i++) {
       std::string arg = argv[i];
       if (arg == "--help" || arg == "-h") {
         std::cout
-            << "Usage: ./create_graph_file\n"
+            << "Usage: ./create_graph_file [USER] [HOST]\n"
             << "option arguments:\n"
             << "-h --help               Show help\n"
             << "-v --version            Show version\n"
@@ -86,19 +88,41 @@ int main(int argc, char **argv) {
         tmp = atoi(argv[++i]);
         if (tmp <= 0) parse_ok = false;
         thread_number = tmp;
+      } else if (i == 1) {
+        user = arg;
+      } else if (i == 2) {
+        host = arg;
       } else {
-        throw EXCEPTION("Parse error");
+        std::string msg;
+        msg = "Parse error.\n\"\033[1m" + arg + "\033[0m\" is unkwnon.";
+        throw EXCEPTION(msg);
       }
     }
     if (parse_ok == false) {
       throw EXCEPTION("Parse error");
     }
 
+    // password
+    std::cout << "password for " << user << ":" << std::flush;
+    struct termios tty;
+    tcgetattr(STDIN_FILENO, &tty);
+    // disable echo
+    tty.c_lflag &= ~ECHO;
+    tcsetattr(STDIN_FILENO, TCSANOW, &tty);
+    std::getline(std::cin, password);
+    if (std::cin.eof()) return 0;
+    tcgetattr(STDIN_FILENO, &tty);
+    // enable echo
+    tty.c_lflag |= ECHO;
+    tcsetattr(STDIN_FILENO, TCSANOW, &tty);
+    // 入力終了後に改行をする
+    std::cout << std::endl;
+
     if (fs::exists(directory) == false) {
       if (fs::is_directory(directory) == false) {
-        throw EXCEPTION("is file");
+        throw EXCEPTION("Not directory");
       } else if (fs::create_directory(directory) == false) {
-        throw EXCEPTION("create directory failed");
+        throw EXCEPTION("Create directory failed");
       }
     }
 
@@ -106,8 +130,8 @@ int main(int argc, char **argv) {
 
     std::vector<std::shared_ptr<Wikipedia>> wiki(thread_number);
     for (int i = 0; i < thread_number; i++) {
-      wiki[i] = std::make_shared<Wikipedia>(HOST, USER, PASSWORD);
-      wiki[i]->init();
+      wiki[i] = std::make_shared<Wikipedia>();
+      wiki[i]->init(host, user, password);
     }
     auto id = wiki[0]->get_all_page_id();
     std::vector<std::future<void>> res(thread_number);
@@ -123,13 +147,13 @@ int main(int argc, char **argv) {
     for (int i = 0; i < thread_number; i++) {
       res[i].get();
     }
-    std::cout << "[INFO] ";
+    LOG_INFO;
     timer.print();
     if (is_success) {
-      std::cout << "[INFO] success" << std::endl;
+      LOG_OK << "Success" << std::endl;
       return 0;
     } else {
-      EXCEPTION("failed");
+      EXCEPTION("Failed");
     }
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;

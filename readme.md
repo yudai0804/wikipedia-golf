@@ -59,7 +59,7 @@ https://ja.wikipedia.org/wiki/Wikipedia:%E3%83%87%E3%83%BC%E3%82%BF%E3%83%99%E3%
 ## Build
 ```
 cmake -S . -B build
-cmake --build
+cmake --build build
 ```
 
 ## create_graph_file実行
