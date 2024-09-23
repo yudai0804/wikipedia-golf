@@ -70,9 +70,15 @@ int main(int argc, char **argv) {
         std::cout
             << "Usage: ./create_graph_file\n"
             << "option arguments:\n"
+            << "-h --help               Show help\n"
+            << "-v --version            Show version\n"
             << "--output [PATH]         Output directory path.(defualt: graph_bin)\n"
             << "--thread_number [NUM]   Thread number for exporting.(default: 1)\n"
             << std::endl;
+        return 0;
+      } else if (arg == "-v" || arg == "--version") {
+        std::cout << "Version " << MAJOR_VERSION << "." << MINOR_VERSION
+                  << std::endl;
         return 0;
       } else if (arg == "--output" && i + 1 < argc) {
         directory = argv[++i];

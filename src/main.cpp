@@ -250,6 +250,8 @@ int main(int argc, char** argv) {
             << "Usage: ./wikipedia-golf\n"
             << "If there are spaces included, please enclose the text in single quotes or double quotes.\n\n"
             << "option arguments:\n"
+            << "-h --help               Show help\n"
+            << "-v --version            Show version\n"
             << "--input [PATH]          Input directory path.(defualt: graph_bin)\n"
             << "--thread_number [NUM]   Thread number for loading.(default: 1)\n"
             << "                        Please note that increasing the number of threads will not speed up the search.\n"
@@ -259,6 +261,10 @@ int main(int argc, char** argv) {
             << "--use_fast_queue        Using fast queue.\n"
             << "                        Fast queue is using 4GB RAM.\n"
             << std::endl;
+        return 0;
+      } else if (arg == "-v" || arg == "--version") {
+        std::cout << "Version " << MAJOR_VERSION << "." << MINOR_VERSION
+                  << std::endl;
         return 0;
       } else if (arg == "--input" && i + 1 < argc) {
         directory = argv[++i];
