@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "exception.hpp"
 #include "timer.hpp"
 #include "wikipedia.hpp"
 // for HOST, USER, PASSWORD
@@ -57,74 +58,75 @@ void task(std::shared_ptr<Wikipedia> wiki, int start, int end) {
 }
 
 int main(int argc, char **argv) {
-  Timer timer;
-  int tmp;
-  bool parse_ok = true;
-  int thread_number = 1;
-  // parse
-  for (int i = 1; i < argc; i++) {
-    std::string arg = argv[i];
-    if (arg == "--help" || arg == "-h") {
-      std::cout
-          << "Usage: ./create_graph_file\n"
-          << "option arguments:\n"
-          << "--output [PATH]         Output directory path.(defualt: graph_bin)\n"
-          << "--thread_number [NUM]   Thread number for exporting.(default: 1)\n"
-          << std::endl;
-      return 0;
-    } else if (arg == "--output" && i + 1 < argc) {
-      directory = argv[++i];
-    } else if (arg == "--thread_number" && i + 1 < argc) {
-      tmp = atoi(argv[++i]);
-      if (tmp <= 0) parse_ok = false;
-      thread_number = tmp;
-    } else {
-      std::cerr << "input error" << std::endl;
-      return 1;
+  try {
+    Timer timer;
+    int tmp;
+    bool parse_ok = true;
+    int thread_number = 1;
+    // parse
+    for (int i = 1; i < argc; i++) {
+      std::string arg = argv[i];
+      if (arg == "--help" || arg == "-h") {
+        std::cout
+            << "Usage: ./create_graph_file\n"
+            << "option arguments:\n"
+            << "--output [PATH]         Output directory path.(defualt: graph_bin)\n"
+            << "--thread_number [NUM]   Thread number for exporting.(default: 1)\n"
+            << std::endl;
+        return 0;
+      } else if (arg == "--output" && i + 1 < argc) {
+        directory = argv[++i];
+      } else if (arg == "--thread_number" && i + 1 < argc) {
+        tmp = atoi(argv[++i]);
+        if (tmp <= 0) parse_ok = false;
+        thread_number = tmp;
+      } else {
+        throw EXCEPTION("Parse error");
+      }
     }
-  }
-  if (parse_ok == false) {
-    std::cerr << "input error" << std::endl;
+    if (parse_ok == false) {
+      throw EXCEPTION("Parse error");
+    }
+
+    if (fs::exists(directory) == false) {
+      if (fs::is_directory(directory) == false) {
+        throw EXCEPTION("is file");
+      } else if (fs::create_directory(directory) == false) {
+        throw EXCEPTION("create directory failed");
+      }
+    }
+
+    timer.start();
+
+    std::vector<std::shared_ptr<Wikipedia>> wiki(thread_number);
+    for (int i = 0; i < thread_number; i++) {
+      wiki[i] = std::make_shared<Wikipedia>(HOST, USER, PASSWORD);
+      wiki[i]->init();
+    }
+    auto id = wiki[0]->get_all_page_id();
+    std::vector<std::future<void>> res(thread_number);
+    for (int i = 0; i < thread_number; i++) {
+      int start = id.size() / thread_number * i;
+      int end = start + id.size() / thread_number;
+      if (i == thread_number - 1) end = id.size() - 1;
+      if (i == 0)
+        res[i] = std::async(std::launch::deferred, task, wiki[i], start, end);
+      else
+        res[i] = std::async(std::launch::async, task, wiki[i], start, end);
+    }
+    for (int i = 0; i < thread_number; i++) {
+      res[i].get();
+    }
+    std::cout << "[INFO] ";
+    timer.print();
+    if (is_success) {
+      std::cout << "[INFO] success" << std::endl;
+      return 0;
+    } else {
+      EXCEPTION("failed");
+    }
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
     return 1;
   }
-
-  if (fs::exists(directory) == false) {
-    if (fs::is_directory(directory) == false) {
-      std::cerr << directory << "is file" << std::endl;
-      return 1;
-    } else if (fs::create_directory(directory) == false) {
-      std::cerr << "create directory failed" << std::endl;
-      return 1;
-    }
-  }
-
-  timer.start();
-
-  std::vector<std::shared_ptr<Wikipedia>> wiki(thread_number);
-  for (int i = 0; i < thread_number; i++) {
-    wiki[i] = std::make_shared<Wikipedia>(HOST, USER, PASSWORD);
-    wiki[i]->init();
-  }
-  auto id = wiki[0]->get_all_page_id();
-  std::vector<std::future<void>> res(thread_number);
-  for (int i = 0; i < thread_number; i++) {
-    int start = id.size() / thread_number * i;
-    int end = start + id.size() / thread_number;
-    if (i == thread_number - 1) end = id.size() - 1;
-    if (i == 0)
-      res[i] = std::async(std::launch::deferred, task, wiki[i], start, end);
-    else
-      res[i] = std::async(std::launch::async, task, wiki[i], start, end);
-  }
-  for (int i = 0; i < thread_number; i++) {
-    res[i].get();
-  }
-
-  if (is_success) {
-    std::cout << "success" << std::endl;
-  } else {
-    std::cout << "failed" << std::endl;
-  }
-  timer.print();
-  return (int)is_success ^ 0x01;
 }

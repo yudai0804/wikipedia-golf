@@ -19,10 +19,12 @@
 #include <mutex>
 #include <queue>
 #include <set>
+#include <stdexcept>
 #include <thread>
 #include <utility>
 #include <vector>
 
+#include "exception.hpp"
 #include "timer.hpp"
 #include "wikipedia.hpp"
 // for HOST, USER, PASSWORD
@@ -47,7 +49,6 @@ void load_task(std::vector<int> id, int start, int end) {
     if (!file) {
       load_success_mtx.lock();
       load_success = false;
-      std::cerr << "[ERROR] Error opening file for reading" << std::endl;
       load_success_mtx.unlock();
     }
 
@@ -73,10 +74,9 @@ void load_task(std::vector<int> id, int start, int end) {
   }
 }
 
-int load() {
+void load() {
   if ((fs::exists(directory) && fs::is_directory(directory)) == false) {
-    std::cerr << "[ERROR] directory error" << std::endl;
-    return 1;
+    throw EXCEPTION("Directory Error");
   }
   int total_file = 0;
   int max_file_number = -1;
@@ -103,7 +103,11 @@ int load() {
     res[i].get();
   }
 
-  return (int)load_success ^ 0x01;
+  if (load_success == false) {
+    throw EXCEPTION("[ERROR] load failed");
+  } else {
+    std::cout << "[INFO] load success" << std::endl;
+  }
 }
 
 constexpr uint8_t MAX_DEPTH = 6;
@@ -113,26 +117,59 @@ uint8_t inf_cost = 255;
 int max_ans_number = 5;
 bool allow_similar_path = false;
 
-class Edge {
+struct Edge {
 public:
   uint8_t cost;
   int page_id;
   std::array<int, MAX_DEPTH> path;
-  Edge(uint8_t _cost, int _page_id, std::array<int, MAX_DEPTH> _path)
-      : cost(_cost), page_id(_page_id), path(_path) {}
 };
 
-int search(std::string start, std::string goal) {
+template <typename T>
+class FastQueue {
+private:
+  std::vector<T> _buffer;
+  size_t _l, _r, _size;
+
+public:
+  FastQueue() { _l = _r = _size = 0; }
+  FastQueue(size_t sz) {
+    _size = sz;
+    _l = _r = 0;
+    _buffer.resize(sz);
+  }
+  void push(T value) {
+    _buffer[_r] = value;
+    _r = (_r + 1) % _size;
+    if (_r == _l) throw EXCEPTION("buffer error");
+  }
+  template <class... Args>
+  void emplace(Args... args) {
+    _buffer[_r] = T(args...);
+    _r = (_r + 1) % _size;
+    if (_r == _l) throw EXCEPTION("buffer error");
+  }
+  T front() { return _buffer[_l]; }
+  void pop() {
+    if (_r == _l) throw EXCEPTION("buffer error");
+    _l = (_l + 1) % _size;
+  }
+  bool empty() { return _r == _l; }
+  void clear() { _l = _r = 0; }
+};
+
+template <typename Queue>
+int search(Queue& q, std::string start, std::string goal) {
   int start_page_id = wiki.page_title_to_page_id(start);
   int goal_page_id = wiki.page_title_to_page_id(goal);
   if (start_page_id == -1 || goal_page_id == -1) {
-    std::cerr << "[ERROR] The entered word does not exist." << std::endl;
+    std::cerr << "\033[31m[ERROR]\033[0m The entered word does not exist."
+              << std::endl;
     return 1;
   }
   std::vector<std::vector<int>> ans_id;
-  std::queue<Edge> q;
   std::vector<uint8_t> visit(graph.size(), inf_cost);
   std::array<int, MAX_DEPTH> _ = {start_page_id};
+
   q.emplace(1, start_page_id, _);
   int ok_cost = inf_cost;
   while (q.empty() == false && ans_id.size() < (size_t)max_ans_number) {
@@ -162,7 +199,7 @@ int search(std::string start, std::string goal) {
     }
   }
   if (ok_cost == inf_cost) {
-    std::cerr << "[ERROR] failed search" << std::endl;
+    std::cerr << "\033[31m[ERROR]\033[0m failed search" << std::endl;
     return 1;
   }
 
@@ -199,76 +236,88 @@ int search(std::string start, std::string goal) {
 }
 
 int main(int argc, char** argv) {
-  Timer timer;
-  std::string start, goal;
-  bool parse_ok = true;
-  int tmp;
-
-  // parse
-  for (int i = 1; i < argc; i++) {
-    std::string arg = argv[i];
-    if (arg == "--help" || arg == "-h") {
-      std::cout
-          << "Usage: ./wikipedia-golf\n"
-          << "If there are spaces included, please enclose the text in single quotes or double quotes.\n\n"
-          << "option arguments:\n"
-          << "--input [PATH]          Input directory path.(defualt: graph_bin)\n"
-          << "--thread_number [NUM]   Thread number for loading.(default: 1)\n"
-          << "                        Please note that increasing the number of threads will not speed up the search.\n"
-          << "--max_ans_number [NUM]  Max answer number.(default: 5)\n"
-          << "--allow_similar_path    Allow similar_path.(default: false)\n"
-          << "                        Setting it to true will make it very slow.\n"
-          << std::endl;
-      return 0;
-    } else if (arg == "--input" && i + 1 < argc) {
-      directory = argv[++i];
-    } else if (arg == "--thread_number" && i + 1 < argc) {
-      tmp = atoi(argv[++i]);
-      if (tmp <= 0) parse_ok = false;
-      thread_number = tmp;
-    } else if (arg == "--max_ans_number" && i + 1 < argc) {
-      tmp = atoi(argv[++i]);
-      if (tmp <= 0) parse_ok = false;
-      max_ans_number = tmp;
-    } else if (arg == "--allow_similar_path") {
-      allow_similar_path = true;
-    } else {
-      std::cerr << "[ERROR] input error" << std::endl;
-      return 1;
+  try {
+    Timer timer;
+    std::string start, goal;
+    bool parse_ok = true;
+    bool use_fast_queue = false;
+    int tmp;
+    // parse
+    for (int i = 1; i < argc; i++) {
+      std::string arg = argv[i];
+      if (arg == "--help" || arg == "-h") {
+        std::cout
+            << "Usage: ./wikipedia-golf\n"
+            << "If there are spaces included, please enclose the text in single quotes or double quotes.\n\n"
+            << "option arguments:\n"
+            << "--input [PATH]          Input directory path.(defualt: graph_bin)\n"
+            << "--thread_number [NUM]   Thread number for loading.(default: 1)\n"
+            << "                        Please note that increasing the number of threads will not speed up the search.\n"
+            << "--max_ans_number [NUM]  Max answer number.(default: 5)\n"
+            << "--allow_similar_path    Allow similar_path.(default: false)\n"
+            << "                        Setting it to true will make it very slow.\n"
+            << "--use_fast_queue        Using fast queue.\n"
+            << "                        Fast queue is using 4GB RAM.\n"
+            << std::endl;
+        return 0;
+      } else if (arg == "--input" && i + 1 < argc) {
+        directory = argv[++i];
+      } else if (arg == "--thread_number" && i + 1 < argc) {
+        tmp = atoi(argv[++i]);
+        if (tmp <= 0) parse_ok = false;
+        thread_number = tmp;
+      } else if (arg == "--max_ans_number" && i + 1 < argc) {
+        tmp = atoi(argv[++i]);
+        if (tmp <= 0) parse_ok = false;
+        max_ans_number = tmp;
+      } else if (arg == "--allow_similar_path") {
+        allow_similar_path = true;
+      } else if (arg == "--use_fast_queue") {
+        use_fast_queue = true;
+      } else {
+        throw EXCEPTION("Parse error");
+      }
     }
-  }
-  if (parse_ok == false) {
-    std::cerr << "[ERROR] input error" << std::endl;
+    if (parse_ok == false) {
+      throw EXCEPTION("Parse error");
+    }
+
+    std::cout << "[INFO] load start" << std::endl;
+
+    wiki.init();
+
+    timer.start();
+    load();
+    std::cout << "[INFO] ";
+    timer.print();
+
+    std::queue<Edge> std_queue;
+    FastQueue<Edge> fast_queue;
+    if (use_fast_queue) {
+      fast_queue = FastQueue<Edge>(4e9 / sizeof(Edge));
+    }
+    std::cout << "Please input word" << std::endl;
+    while (1) {
+      std::cout << "start word:" << std::flush;
+      std::getline(std::cin, start);
+      if (std::cin.eof()) return 0;
+      std::cout << "goal word:" << std::flush;
+      std::getline(std::cin, goal);
+      if (std::cin.eof()) return 0;
+      timer.start();
+      if (use_fast_queue) {
+        fast_queue.clear();
+        search(fast_queue, start, goal);
+      } else {
+        std_queue = std::queue<Edge>();
+        search(std_queue, start, goal);
+      }
+      std::cout << "[INFO] Time: " << timer.get() << "[s]" << std::endl;
+    }
+
+    return 0;
+  } catch (const std::exception& e) {
+    std::cerr << e.what() << std::endl;
     return 1;
   }
-
-  std::cout << "[INFO] load start" << std::endl;
-
-  wiki.init();
-
-  timer.start();
-  int status = load();
-  if (status == 0) {
-    std::cout << "[INFO] load success" << std::endl;
-  } else {
-    std::cerr << "[ERROR] load failed" << std::endl;
-    return status;
-  }
-  std::cout << "[INFO] ";
-  timer.print();
-
-  std::cout << "Please input word" << std::endl;
-  while (1) {
-    std::cout << "start word:" << std::flush;
-    std::getline(std::cin, start);
-    if (std::cin.eof()) return 0;
-    std::cout << "goal word:" << std::flush;
-    std::getline(std::cin, goal);
-    if (std::cin.eof()) return 0;
-    timer.start();
-    status = search(start, goal);
-    std::cout << "[INFO] Time: " << timer.get() << "[s]" << std::endl;
-  }
-
-  return 0;
 }
