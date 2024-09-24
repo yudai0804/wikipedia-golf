@@ -127,7 +127,6 @@ option arguments:
 ./create_graph_file --help
 ```
 ```
-Usage: ./create_graph_file
 Usage: ./create_graph_file [USER] [HOST]
 option arguments:
 -h --help               Show help
