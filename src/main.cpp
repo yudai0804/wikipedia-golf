@@ -43,11 +43,16 @@ std::mutex load_success_mtx;
 
 std::map<int, std::string> page_id_to_page_title;
 std::map<std::string, int> page_title_to_page_id;
+
 std::vector<int> all_page_id;
 
-int thread_number = -1;
+int thread_number = 1;
+
+size_t LOAD_BUFFER_SIZE = 1e6;
+size_t FAST_QUEUE_BUFFER_SIZE = 4e9;
 
 void load_task(std::vector<int> id, int start, int end) {
+  char buffer[LOAD_BUFFER_SIZE];
   for (int i = start; i < end; i++) {
     fs::path filename = directory / fs::path(std::to_string(id[i]) + filetype);
     std::ifstream file(filename, std::ios::binary);
@@ -55,6 +60,7 @@ void load_task(std::vector<int> id, int start, int end) {
       load_success_mtx.lock();
       load_success = false;
       load_success_mtx.unlock();
+      return;
     }
 
     // ファイルサイズを取得
@@ -62,7 +68,12 @@ void load_task(std::vector<int> id, int start, int end) {
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    char* buffer = new char[size];
+    if ((size_t)size > LOAD_BUFFER_SIZE) {
+      load_success_mtx.lock();
+      load_success = false;
+      load_success_mtx.unlock();
+      return;
+    }
 
     // ファイルからデータを読み込む
     file.read(buffer, size);
@@ -74,7 +85,6 @@ void load_task(std::vector<int> id, int start, int end) {
       graph[index].push_back(*tmp);
     }
     graph_mtx.unlock();
-    delete[] buffer;
     file.close();
   }
 }
@@ -335,12 +345,15 @@ int main(int argc, char** argv) {
 
     std::queue<Edge> std_queue;
     FastQueue<Edge> fast_queue;
-    if (use_fast_queue) {
-      fast_queue = FastQueue<Edge>(4e9 / sizeof(Edge));
-    }
+    bool fast_queue_initialize_end = false;
     while (1) {
       std::cout << "\033[1mPlease input word\033[0m" << std::endl;
       std::cout << "Start word:" << std::flush;
+      // 入力待ちの間にメモリを確保することで、遅延を感じないようにする。
+      if (use_fast_queue && fast_queue_initialize_end == false) {
+        fast_queue = FastQueue<Edge>(FAST_QUEUE_BUFFER_SIZE / sizeof(Edge));
+        fast_queue_initialize_end = true;
+      }
       std::getline(std::cin, start);
       if (std::cin.eof()) return 0;
       std::cout << "Goal word:" << std::flush;
