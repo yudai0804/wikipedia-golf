@@ -46,7 +46,7 @@ std::map<std::string, int> page_title_to_page_id;
 
 std::vector<int> all_page_id;
 
-int thread_number = -1;
+int thread_number = 1;
 
 size_t LOAD_BUFFER_SIZE = 1e6;
 size_t FAST_QUEUE_BUFFER_SIZE = 4e9;
