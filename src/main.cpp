@@ -68,7 +68,7 @@ void load_task(std::vector<int> id, int start, int end) {
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    if (size > LOAD_BUFFER_SIZE) {
+    if ((size_t)size > LOAD_BUFFER_SIZE) {
       load_success_mtx.lock();
       load_success = false;
       load_success_mtx.unlock();
