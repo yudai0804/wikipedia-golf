@@ -200,8 +200,50 @@ public:
   void clear() { _l = _r = 0; }
 };
 
+/**
+ * @brief 西暦、日付のページを無効化する
+ * 無効にするもの
+ * - 月
+ * - 日
+ * - 何月何日
+ * - 西暦
+ *
+ * 西暦参考:https://ja.wikipedia.org/wiki/%E5%B9%B4%E3%81%AE%E4%B8%80%E8%A6%A7
+ *
+ * @param visit
+ */
+void ignore_date(std::vector<uint8_t>& visit) {
+  auto ignore_task = [&](std::string str) {
+    if (page_title_to_page_id.count(str) == 0) return;
+    int id = page_title_to_page_id[str];
+    visit[id] = 0;
+  };
+  // 月
+  for (int i = 1; i <= 12; i++) {
+    ignore_task(std::to_string(i) + "月");
+  }
+  // 日
+  for (int i = 1; i <= 31; i++) {
+    ignore_task(std::to_string(i) + "日");
+  }
+  // 何月何日
+  for (int i = 1; i <= 12; i++) {
+    for (int j = 1; j <= 31; j++) {
+      ignore_task(std::to_string(i) + "月" + std::to_string(j) + "日");
+    }
+  }
+  // 紀元前1年から紀元前2500年
+  for (int i = 1; i <= 2500; i++) {
+    ignore_task("紀元前" + std::to_string(i) + "年");
+  }
+  // 1年から2500年
+  for (int i = 1; i <= 2500; i++) {
+    ignore_task(std::to_string(i) + "年");
+  }
+}
+
 template <typename Queue>
-int search(Queue& q, std::string start, std::string goal) {
+int search(Queue& q, std::string start, std::string goal, bool is_ignore_date) {
   if (page_title_to_page_id.count(start) == 0 ||
       page_title_to_page_id.count(goal) == 0) {
     LOG_ERROR << "The entered word does not exist." << std::endl;
@@ -212,6 +254,10 @@ int search(Queue& q, std::string start, std::string goal) {
   std::vector<std::vector<int>> ans_id;
   std::vector<uint8_t> visit(graph.size(), inf_cost);
   std::array<int, MAX_DEPTH> _ = {start_page_id};
+
+  if (is_ignore_date) {
+    ignore_date(visit);
+  }
 
   q.emplace(1, start_page_id, _);
   int ok_cost = inf_cost;
@@ -285,7 +331,6 @@ int search(Queue& q, std::string start, std::string goal) {
 int main(int argc, char** argv) {
   try {
     Timer timer;
-    std::string start, goal;
     bool parse_ok = true;
     bool use_fast_queue = false;
     int tmp;
@@ -347,7 +392,11 @@ int main(int argc, char** argv) {
     FastQueue<Edge> fast_queue;
     bool fast_queue_initialize_end = false;
     while (1) {
+      std::string start, goal, option;
+      bool is_ignore_date = false;
+      // 入力してね
       std::cout << "\033[1mPlease input word\033[0m" << std::endl;
+      // start
       std::cout << "Start word:" << std::flush;
       // 入力待ちの間にメモリを確保することで、遅延を感じないようにする。
       if (use_fast_queue && fast_queue_initialize_end == false) {
@@ -356,16 +405,37 @@ int main(int argc, char** argv) {
       }
       std::getline(std::cin, start);
       if (std::cin.eof()) return 0;
+
+      // goal
       std::cout << "Goal word:" << std::flush;
       std::getline(std::cin, goal);
       if (std::cin.eof()) return 0;
+
+      // option
+      std::cout << "Option:" << std::flush;
+      std::getline(std::cin, option);
+      if (std::cin.eof()) return 0;
+
+      // parse
+      if (option == "--ignore_date")
+        is_ignore_date = true;
+      else if (option != "") {
+        LOG_ERROR << "Option error" << std::endl;
+        std::cout
+            << "If you don't wish to use the options, please press the Enter key.\n"
+            << "Available option\n"
+            << "--ignore_date" << std::endl;
+        continue;
+      }
+
+      // search
       timer.start();
       if (use_fast_queue) {
         fast_queue.clear();
-        search(fast_queue, start, goal);
+        search(fast_queue, start, goal, is_ignore_date);
       } else {
         std_queue = std::queue<Edge>();
-        search(std_queue, start, goal);
+        search(std_queue, start, goal, is_ignore_date);
       }
       LOG_INFO << "Time: " << timer.get() << "[s]" << std::endl;
     }

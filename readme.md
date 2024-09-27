@@ -103,6 +103,12 @@ Wikipedia golfを対話形式で行います。
 ```
 ./build/wikipedia-golf --thread_number 6 --max_ans_number 50 -use_fast_queue
 ```
+start_wordとgoal_wordには好きな文字を入力してください。  
+start_wordとgoal_wordは入力が必須で、optionの入力は任意です。  
+
+利用可能なoption
+- `--ignore_date`
+  - 日付が探索の対象から無効化されます。  
 
 # Help
 ```
